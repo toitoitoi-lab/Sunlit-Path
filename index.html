@@ -113,6 +113,13 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid var(--line);pad
 .pane>*,.main>*,.route>*,.hw>.row,.card>*{flex-shrink:0}
 .pane>.hw{flex:1 0 17rem}
 .bw{display:block;min-width:0}.bw>button{width:100%}
+.chk{border-color:var(--go)}
+html.kbd .pane,html.kbd .main{padding-bottom:60vh}
+.chkgrid{display:flex;flex-direction:column;gap:.4rem;margin-top:.3rem}.chkgrid>*{flex-shrink:0}.chk .praise{font-size:1.15rem}
+.radar{width:100%;max-width:21rem;height:auto;display:block;margin:0 auto}
+.rules>div{margin:.15rem 0}.rules .ok{color:var(--you);font-weight:700}.rules .tip{color:var(--go);font-weight:700}
+.unk{border-top:2px dashed var(--line);padding-top:.4rem}
+
 .say.tier+.b{margin-top:.6rem}
 .wp>span{min-width:0;overflow-wrap:anywhere}
 .typed,.sent,.say .en{overflow-wrap:anywhere}
@@ -135,7 +142,7 @@ var MODE="<?= mode ?>";
 (function(){
 "use strict";
 var GAS=(MODE==="private")&&typeof google!=="undefined"&&google.script&&google.script.run;
-var VERSION="v0.12";
+var VERSION="v0.13";
 /* ---------- CEFR 辞書（A1〜A2）---------- */
 /* [番号, 見出し語, レベル, 品詞, 意味, 例文, 例文の訳, 別の書き方]
    語彙とレベル：CEFR-J Wordlist Version 1.5（東京外国語大学 投野由紀夫）／意味：EJDict-hand（パブリックドメイン）をもとに作成／例文：Sunlit Path オリジナル */
@@ -144,7 +151,7 @@ var CEFR=[[1,"a","A1","限定","1つの、ある","I have a dog and two cats.","
 /* 手順: [題, 働き(1-5), 文法名, 新出か, [Kaiの問い,訳], [Kaiの返し,訳], [Kaiの答え,訳], [[基本,意味],[発展,意味],[会話,意味]], 選ぶ言葉|null]
    選ぶ言葉: [英語, 日本語, {y}用の形] */
 var FUNCS=["","コミュニケーションを円滑にする","気持ちを伝える","事実・情報を伝える","考えや意図を伝える","相手の行動を促す"];
-var TIERS=[["基本","中学校"],["発展","高等学校"],["会話","オリジナル"]];
+var TIERS=[["言い方1",""],["言い方2",""],["言い方3",""]];
 var THEMES=[
 {id:"t1",ja:"自己紹介をしよう",en:"My Profile",kai:"友だち",endT:"発表する",head:"Hello, everyone.",tail:"Nice to meet you.",steps:[
  ["好きなことを言う",[3,"説明する"],"現在形（一般動詞）",0,["What do you like?","何が好き？"],["Nice!","いいね！"],["I like rugby.","ラグビーが好きだよ。"],
@@ -300,19 +307,19 @@ THEMES.forEach(function(T){T.steps=T.steps.map(function(a,i){return {id:T.id+"-"
 var PRAISE=["Great!","Nice work!","Well done!","Good job!","Awesome!","You did it!"];
 var STAGES=["聞く","表現する","やり取り","自分の文"];
 var METHODS={keep:"選んだ文",abc:"ABCキーボード",voice:"声で",hand:"手書き",photo:"写真"};
-var LEVELS=[["やさしい","言い方 1つでクリア（基本だけでもOK）",1],["標準","言い方 2つでクリア",2],["実践","言い方 3つでクリア",3]];
+var LEVELS=[["やさしい","言い方 1つでクリア（言い方1だけでもOK）",1],["標準","言い方 2つでクリア",2],["実践","言い方 3つでクリア",3]];
 var TIER4=TIERS.concat([["自分の言葉","オリジナル"]]);
 
 /* ---------- 状態 ---------- */
-var S={view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
+var S={prac:{},lastChk:{},view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
  sel:{},answers:{},tries:{},notes:[],notesLoaded:!GAS,noteUrl:"",inp:null,lvSel:0,
  hw:{strokes:[],full:false,thick:true},conv:null,swap:false,
  dict:null,dl:"a",dq:"",dqOn:false,dsel:null,tlist:null,imgs:{},saved:null,words:null};
 var KEY="sunlit_path_05";
-function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
+function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
  if(!GAS){if(o.answers)S.answers=o.answers;if(o.tries)S.tries=o.tries;if(o.notes)S.notes=o.notes;}}catch(e){}}
 function store(){try{var a={};Object.keys(S.answers).forEach(function(k){var x=S.answers[k];a[k]={text:x.text,method:x.method,ok:x.ok};});
- var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries};
+ var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk};
  if(!GAS)o.notes=S.notes.map(function(n){return {time:n.time,label:n.label,text:n.text};});
  localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
 function run(fn,arg,cb){
@@ -419,8 +426,8 @@ var UIL={home:["Home","ホーム"],route:["Route","{道|みち}"],themes:["Theme
  submit:["Done (submit)","できた（{提出|ていしゅつ}）"],resubmit:["Submit again","もう{一度|いちど}{提出|ていしゅつ}する"],thick:["Thick pen","{太|ふと}いペン"],read:["Read text","{文字|もじ}を{読|よ}み{取|と}る"],
  showkb:["Show keyboard","ABCキーボードを{出|だ}す"],caps:["Caps","{大文字|おおもじ}"],space:["Space","スペース"],photobtn:["Take / choose a photo","{写真|しゃしん}を{撮|と}る・{選|えら}ぶ"],
  m_keep:["Chosen sentence","{選|えら}んだ{文|ぶん}"],m_abc:["ABC keyboard","ABCキーボード"],m_voice:["Voice","{声|こえ}で"],m_hand:["Handwriting","{手書|てが}き"],m_photo:["Photo","{写真|しゃしん}"],
- t0:["Basic","{基本|きほん}"],t1:["Advanced","{発展|はってん}"],t2:["Conversation","{会話|かいわ}"],t3:["My own","{自分|じぶん}の{言葉|言葉}"],
- ts0:["Junior high","{中学校|ちゅうがっこう}"],ts1:["High school","{高等学校|こうとうがっこう}"],ts2:["Original","オリジナル"],ts3:["Original","オリジナル"],
+ t0:["Way 1","{言|い}い{方|かた}1"],t1:["Way 2","{言|い}い{方|かた}2"],t2:["Way 3","{言|い}い{方|かた}3"],t3:["My own","{自分|じぶん}の{言葉|ことば}"],
+ ts0:["",""],ts1:["",""],ts2:["",""],check:["Check","{点検|てんけん}する"],checkres:["Check","{点検|てんけん}"],ts3:["Original","オリジナル"],
  lv0:["Easy","やさしい"],lv1:["Standard","{標準|ひょうじゅん}"],lv2:["Challenge","{実践|じっせん}"],level:["Level","{取|と}り{組|く}み{方|かた}"],
  h_theme:["Start from a theme","テーマから{進|すす}む"],h_expr:["Start from expressions","{表現|ひょうげん}から{進|すす}む"],h_notes:["My notes","{自分|じぶん}のノート"],h_dict:["Dictionary","{辞書|じしょ}"],
  h_rec:["My records","{自分|じぶん}の{記録|きろく}"],h_teacher:["Teacher page","{先生|せんせい}のページ"],nexthere:["Next","{次|つぎ}はここ"],goal:["Goal","ゴール"],new:["New","{新|あたら}しい{表現|ひょうげん}"],rev:["Review","{復習|ふくしゅう}"],
@@ -551,11 +558,11 @@ function vListen(){
 function vMake(st){
  var s=sel(st),sent=built(st);
  return '<div><div class="dim">'+L("chooseway")+'</div><div class="tiles">'+st.lv.map(function(l,i){
-   return '<button class="tile'+(s.lv===i?" on":"")+'" data-a="lv" data-v="'+i+'"><span class="en">'+slotHtml(l[0])+'</span><span class="ja"><b>'+L("t"+i)+'</b>（'+L("ts"+i)+'）'+h(l[1])+'</span>'+tierNew(st,l)+'</button>';}).join("")+'</div></div>'+
+   return '<button class="tile'+(s.lv===i?" on":"")+'" data-a="lv" data-v="'+i+'"><span class="en">'+slotHtml(l[0])+'</span><span class="ja"><b>'+L("t"+i)+'</b>'+(L("ts"+i)?'（'+L("ts"+i)+'）':'　')+h(l[1])+'</span>'+tierNew(st,l)+'</button>';}).join("")+'</div></div>'+
   (st.x?'<div><div class="dim">'+L("choosewords")+'</div><div class="tiles">'+st.x.map(function(o,i){
    return '<button class="tile'+(s.x===i?" on":"")+'" data-a="pick" data-v="'+i+'"><span class="en">'+h(o[0])+'</span><span class="ja">'+h(o[1])+'</span></button>';}).join("")+'</div></div>':"")+
   '<div class="dim">'+L("yoursent")+'（押すと聞けます）</div>'+(sent?'<button class="sent en big" data-a="say" data-w="Y" data-t="'+h(sent)+'">'+h(sent)+'</button>':'<div class="sent dim">上から選ぶと、ここに文ができます。</div>')+
-  (sent?'<div class="card">'+methodRow(["abc","voice","hand"],true)+(S.inp.method?inputBody()+(S.inp.method!=="hand"&&S.inp.text&&norm(S.inp.text)===norm(sent)?'<div class="praise en">Perfect!</div>':""):'<div class="dim" style="font-size:.85rem">見ながら打つ・声で言う・手で書くと、文が身につきます。</div>')+
+  (sent?'<div class="card">'+methodRow(["abc","voice","hand"],true)+(S.inp.method?inputBody()+'<div class="row" style="margin-top:.4rem">'+chkBtn()+'<span class="dim" style="font-size:.85rem">書いた文・言った文を、4つの見方で点検します</span></div>'+chkCard(S.inp.chk):'<div class="dim" style="font-size:.85rem">見ながら打つ・声で言う・手で書くと、文が身につきます。</div>')+
    '<div class="row" style="margin-top:.4rem">'+noteBtn()+'<span class="dim" style="font-size:.85rem">気に入った文を自分のノートに残せます</span></div></div>':"")+
   '<div class="sp"></div><div class="row"><button class="b" data-a="stage" data-v="0">'+L("back")+'</button><div class="sp"></div><button class="b go'+(sent?" next":"")+'" data-a="stage" data-v="2"'+(sent?"":" disabled")+'>'+L("next")+'</button></div>';
 }
@@ -570,7 +577,7 @@ function vConv(st){
  if(!c)turn='<button class="b go" data-a="conv">▶ '+L("start")+'</button>';
  else if(c.i>=lines.length)turn='<div class="praise en">'+h(c.praise)+'</div><div>最後までできました。役を入れ替えて、もう一度やってみよう。</div>';
  else if(lines[c.i][0]==="Y")turn='<div class="card"><div class="row"><span class="lab you">'+L("yourturn")+'</span>声に出して言おう。<button class="b go" data-a="said">'+L("said")+'</button></div>'+
-   methodRow(["abc","voice","hand"],true)+(S.inp.method?inputBody()+'<div class="row"><button class="b go" data-a="said" data-v="use">'+L("use")+'</button></div>':"")+
+   methodRow(["abc","voice","hand"],true)+(S.inp.method?inputBody()+'<div class="row"><button class="b go" data-a="said" data-v="use">'+L("use")+'</button>'+chkBtn()+'</div>'+chkCard(S.inp.chk):"")+
    '<div class="row" style="margin-top:.4rem">'+noteBtn()+'</div></div>';
  else turn='<div class="dim">Kai が話しています…</div>';
  return '<div class="row"><button class="b'+(!S.swap?" on":"")+'" data-a="swap" data-v="0">'+L("role_a")+'</button><button class="b'+(S.swap?" on":"")+'" data-a="swap" data-v="1">'+L("role_q")+'</button></div>'+body+turn+
@@ -584,11 +591,12 @@ function tierPick(st){
  var t=S.tries[st.id]||{};
  var nox=st.x&&sel(st).x==null;
  return (nox?'<div class="card pick">まだ言葉を選んでいません。<button class="b go" data-a="stage" data-v="1">'+L("goexpr")+'</button></div>':"")+'<div class="tiles">'+TIER4.map(function(x,i){var txt=i<3?(builtLv(st,i)||blank(st.lv[i][0])):"自分で考えた文";
-  return '<button class="tile'+(S.lvSel===i?" on":"")+'" data-a="lvsel" data-v="'+i+'"><span class="ja"><b>'+L("t"+i)+'</b>（'+L("ts"+i)+'）'+(t[i]!==undefined?' <span class="lab you">✓ '+L("did")+'</span>':"")+'</span><span class="en">'+h(txt)+'</span></button>';}).join("")+'</div>';
+  return '<button class="tile'+(S.lvSel===i?" on":"")+'" data-a="lvsel" data-v="'+i+'"><span class="ja"><b>'+L("t"+i)+'</b>'+(L("ts"+i)?'（'+L("ts"+i)+'）':'')+(t[i]!==undefined?' <span class="lab you">✓ '+L("did")+'</span>':"")+'</span><span class="en">'+h(txt)+'</span></button>';}).join("")+'</div>';
 }
 function vAnswer(st){
  return progressLine(st)+'<div class="dim">練習する言い方を選ぶ（いくつでも試せます）</div>'+tierPick(st)+
-  methodRow(S.lvSel===3?["abc","voice","hand","photo"]:["keep","abc","voice","hand","photo"],false)+inputBody()+'<div class="sp"></div>'+
+  methodRow(S.lvSel===3?["abc","voice","hand","photo"]:["keep","abc","voice","hand","photo"],false)+inputBody()+
+  (S.inp.method!=="keep"?'<div class="row" style="margin-top:.4rem">'+chkBtn()+'</div>'+chkCard(S.inp.chk):"")+'<div class="sp"></div>'+
   '<div class="row"><button class="b" data-a="stage" data-v="2">'+L("back")+'</button>'+noteBtn()+'<div class="sp"></div><button class="b go next" data-a="save">'+L("save")+'</button></div>';
 }
 function vSaved(st){
@@ -598,7 +606,7 @@ function vSaved(st){
   '<span class="lab you">'+L("you")+'</span>'+(s.text?'<button class="say en" data-a="say" data-w="Y" data-t="'+h(s.text)+'">'+h(s.text)+'</button>':'<span class="dim">（手書き・写真で保存しました）</span>')+'</div>'+
   (s.img?'<img class="photo" src="'+s.img+'" alt="保存した画像" style="margin-top:.5rem">':"")+'</div>'+
   '<div>'+(s.ok?'<span class="lab you">◎ '+L("pat")+'</span>この手順の言い方が使えています。':(s.text?'お手本と比べてみよう。左の「3つの言い方」は入っているかな。':"先生と一緒に読んでみよう。"))+'</div>'+
-  '<div class="dim">答え方：'+METHODS[s.method]+'　'+(GAS?"記録に残しました。":"この端末に残しました（公開版）。")+'</div><div class="sp"></div>'+
+  chkCard(s.chk)+'<div class="dim">答え方：'+METHODS[s.method]+'　'+(GAS?"記録に残しました。":"この端末に残しました（公開版）。")+'</div><div class="sp"></div>'+
   '<div class="row"><button class="b" data-a="redo">'+L("redo")+'</button>'+noteBtn()+'<div class="sp"></div>'+
   (more>=0?'<button class="b'+(cl?"":" go next")+'" data-a="more">'+L("more")+'</button>':"")+
   '<button class="b'+(cl||more<0?" go next":"")+'" data-a="go" data-v="route">'+L("toroute")+'</button></div>';
@@ -675,8 +683,8 @@ function vRec(){
 function vTeacher(){
  var t=S.tlist;
  var body=!t?'<div class="dim">読み込み中…</div>':(!t.length?'<div class="dim">まだ記録がありません。</div>':
-  '<table><tr><th>日時</th><th>クラス</th><th>ニックネーム</th><th>手順</th><th>言い方</th><th>答え方</th><th>文</th><th>型</th><th>画像</th></tr>'+t.map(function(r){
-   return '<tr><td>'+h(r.time)+'</td><td>'+h(r.cls)+'</td><td>'+h(r.nick)+'</td><td>'+h(r.step)+'</td><td>'+h(r.lv!==""&&r.lv!=null&&TIER4[r.lv]?TIER4[r.lv][0]:"")+'</td><td>'+h(METHODS[r.method]||r.method)+'</td><td class="en">'+h(r.text)+'</td><td>'+(r.ok?"◎":"―")+'</td><td>'+
+  '<table><tr><th>日時</th><th>クラス</th><th>ニックネーム</th><th>手順</th><th>言い方</th><th>答え方</th><th>文</th><th>型</th><th>点検</th><th>画像</th></tr>'+t.map(function(r){
+   return '<tr><td>'+h(r.time)+'</td><td>'+h(r.cls)+'</td><td>'+h(r.nick)+'</td><td>'+h(r.step)+'</td><td>'+h(r.lv!==""&&r.lv!=null&&TIER4[r.lv]?TIER4[r.lv][0]:"")+'</td><td>'+h(METHODS[r.method]||r.method)+'</td><td class="en">'+h(r.text)+'</td><td>'+(r.ok?"◎":"―")+'</td><td style="font-size:.8rem">'+h(r.score||"")+'</td><td>'+
     (r.fileId?(S.imgs[r.fileId]?'<img class="photo" src="'+S.imgs[r.fileId]+'" alt="">':'<button class="b sm" data-a="img" data-v="'+h(r.fileId)+'">見る</button>'):"")+'</td></tr>';}).join("")+'</table>');
  return bar(L("h_teacher"),"新しい順に200件")+'<div class="main"><div class="row"><button class="b" data-a="treload">'+L("reload")+'</button><span class="dim">画面に出るのはクラスとニックネームだけです。手順の「t4-2」はテーマ4の手順2。生徒のノート（Google ドキュメント）はドライブの Sunlit_Path_records にあります。</span></div>'+body+'</div>';
 }
@@ -688,7 +696,7 @@ function vRegister(){
   '<div class="row" style="margin-top:.8rem"><div class="sp"></div><button class="b go" data-a="reg">'+L("ok")+'</button></div></div></div></div>';
 }
 function render(){
- document.documentElement.className="s"+S.scale+" ui"+S.ui;
+ var kb0=document.documentElement.classList.contains("kbd");document.documentElement.className="s"+S.scale+" ui"+S.ui+(kb0?" kbd":"");
  var v;
  if(!S.ready)v=bar("Sunlit Path","")+'<div class="main dim">読み込み中…</div>';
  else if(GAS&&!S.nick)v=vRegister();
@@ -774,6 +782,96 @@ function vWords(){
 }
 function renderOv(){var o=$("ov");var t=o.querySelector(".toast");o.innerHTML=S.words?vWords():"";if(t)o.appendChild(t);}
 
+/* ---------- 点検（v0.13）：書いた文・言った文を、アプリの中だけで見る（外には送らない） ----------
+   4つの軸（0〜4）：伝わる・形・ことば・くり返し。辞書は CEFR と、学校版でははば単も使う。 */
+var CONTR={"i'm":"i am","you're":"you are","we're":"we are","they're":"they are","he's":"he is","she's":"she is","it's":"it is","that's":"that is","what's":"what is","there's":"there is",
+ "i've":"i have","you've":"you have","we've":"we have","they've":"they have","i'll":"i will","you'll":"you will","we'll":"we will","i'd":"i would",
+ "don't":"do not","doesn't":"does not","didn't":"did not","can't":"can not","cannot":"can not","won't":"will not","isn't":"is not","aren't":"are not","wasn't":"was not","weren't":"were not","haven't":"have not","hasn't":"has not","let's":"let us"};
+function toks(t){var a=[];(norm(t).toLowerCase().match(/[a-z0-9]+(?:'[a-z]+)?/g)||[]).forEach(function(w){(CONTR[w]||w).split(" ").forEach(function(x){a.push(x);});});return a;}
+var QW=/^(do|does|did|are|is|am|was|were|can|could|will|would|shall|should|may|have|has|what|where|when|who|whom|whose|why|how|which)\b/i;
+/* 音声入力では終わりの「.」が入らないので、点検・保存のときにアプリが付ける（質問の形なら「?」） */
+function autoEnd(t){t=norm(t);if(!t||/[.?!]$/.test(t))return t;return t+(QW.test(t)?"?":".");}
+var TW=null;
+function themeWords(){if(TW)return TW;TW={};var add=function(s){(String(s||"").toLowerCase().match(/[a-z]+/g)||[]).forEach(function(w){TW[w]=1;});};
+ THEMES.forEach(function(Tm){add(Tm.head);add(Tm.tail);Tm.steps.forEach(function(st){add(st.q&&st.q[0]);add(st.r&&st.r[0]);add(st.ka&&st.ka[0]);st.lv.forEach(function(l){add(l[0].replace(/\{[xyXY]\}/g," "));});(st.x||[]).forEach(function(o){add(o[0]);add(o[2]);});});});
+ "i a an the and or but so to of in on at for with from by about me my you your he him his she her it its we us our they them their this that these those yes no not do does did am is are was were be been have has had will would can could".split(" ").forEach(function(w){TW[w]=1;});
+ return TW;}
+function knownWord(w,first){if(/^\d+$/.test(w))return true;var k=w.toLowerCase();if(themeWords()[k])return true;if(lookup(k))return true;
+ if(!first&&/^[A-Z]/.test(w))return true; /* 名前・地名など */
+ return false;}
+var POOL=null;
+function wordPool(){if(POOL&&POOL.hb===!!S.dict)return POOL.w;var m={};Object.keys(themeWords()).forEach(function(k){m[k]=1;});
+ Object.keys(index("cefr")).forEach(function(k){if(/^[a-z]+$/.test(k))m[k]=1;});if(S.dict)Object.keys(index("hb")).forEach(function(k){if(/^[a-z]+$/.test(k))m[k]=1;});
+ POOL={hb:!!S.dict,w:Object.keys(m)};return POOL.w;}
+function edit(a,b,max){if(Math.abs(a.length-b.length)>max)return max+1;var p=[],i,j;for(j=0;j<=b.length;j++)p[j]=j;
+ for(i=1;i<=a.length;i++){var c=[i],lo=i;for(j=1;j<=b.length;j++){c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));if(c[j]<lo)lo=c[j];}if(lo>max)return max+1;p=c;}return p[b.length];}
+function suggest(w){var k=w.toLowerCase(),max=k.length<=4?1:2,r=[];wordPool().forEach(function(c){if(c===k)return;var d=edit(k,c,max);if(d<=max)r.push([d,c]);});
+ r.sort(function(a,b){return a[0]-b[0]||a[1].length-b[1].length;});return r.slice(0,3).map(function(x){return x[1];});}
+function lcs(a,b){var p=[],i,j;for(j=0;j<=b.length;j++)p[j]=0;for(i=1;i<=a.length;i++){var c=[0];for(j=1;j<=b.length;j++)c[j]=a[i-1]===b[j-1]?p[j-1]+1:Math.max(p[j],c[j-1]);p=c;}return p[b.length];}
+function band(r,cut){for(var i=0;i<cut.length;i++){if(r>=cut[i])return 4-i;}return 0;}
+function formScore(st,tk){
+ var best=0;st.lv.forEach(function(l){
+  var fixed=toks(l[0].replace(/\{[xyXY]\}/g," ")),slot=/\{[xyXY]\}/.test(l[0]);if(!fixed.length)return;
+  var j=0,hit=0;tk.forEach(function(w){if(j<fixed.length&&w===fixed[j]){hit++;j++;}});
+  var r=hit/fixed.length;if(slot&&tk.length<=hit)r*=0.75;if(r>best)best=r;});
+ return band(best,[1,0.75,0.5,0.25]);
+}
+function checkText(st,raw,target,method){
+ var auto=false,text=norm(raw);
+ if(method==="voice"&&text&&!/[.?!]$/.test(text)){text=autoEnd(text);auto=true;}
+ var tk=toks(text),words=norm(text).match(/[A-Za-z]+(?:'[A-Za-z]+)?/g)||[];
+ var unk=[],kn=0;words.forEach(function(w,i){if(knownWord(w,i===0)){kn++;}else if(!unk.some(function(u){return u.w===w;}))unk.push({w:w,s:suggest(w)});});
+ var A={};
+ A.form=formScore(st,tk);
+ A.words=words.length?band(kn/words.length,[1,0.9,0.75,0.5]):0;
+ if(target){var tt=toks(target),m=lcs(tk,tt);A.tell=band(m/Math.max(tt.length,tk.length,1),[0.95,0.8,0.6,0.3]);}
+ else A.tell=Math.round((A.form+A.words)/2);
+ var c=S.prac[st.id]=(S.prac[st.id]||0)+1;A.rep=Math.min(4,c);
+ var rules=[
+  {ok:/^[A-Z]/.test(text),t:"大文字で始まる",hint:"文の始めは大文字にします"},
+  {ok:/[.?!]$/.test(text),t:auto?"終わりの「.」（アプリが付けました）":"終わりに「.」か「?」がある",hint:"文の終わりに「.」をつけます"}];
+ if(/(^|[^A-Za-z'])i([^A-Za-z']|$)/.test(text))rules.push({ok:false,t:"「I（わたし）」は大文字",hint:"「i」を大文字の「I」にします"});
+ var prev=S.lastChk[st.id]||null,res={text:text,auto:auto,a:A,prev:prev,unk:unk,rules:rules,target:target||""};
+ S.lastChk[st.id]=[A.tell,A.form,A.words,A.rep];store();
+ return res;
+}
+function scoreStr(a){return "伝わる"+a.tell+" 形"+a.form+" ことば"+a.words+" くり返し"+a.rep;}
+/* ダイヤモンド型のレーダーチャート（上：伝わる／右：形／下：ことば／左：くり返し） */
+function radar(v,prev){
+ var c=110,r=80,pt=function(a,i){var k=a/4*r;return [[c,c-k],[c+k,c],[c,c+k],[c-k,c]][i];};
+ var poly=function(arr){return arr.map(function(x,i){var p=pt(x,i);return p[0]+","+p[1];}).join(" ");};
+ var g="";for(var s=1;s<=4;s++)g+='<polygon points="'+poly([s,s,s,s])+'" fill="none" stroke="#3a3f4a" stroke-width="'+(s===4?2:1)+'"/>';
+ g+='<line x1="'+c+'" y1="'+(c-r)+'" x2="'+c+'" y2="'+(c+r)+'" stroke="#3a3f4a"/><line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="#3a3f4a"/>';
+ if(prev)g+='<polygon points="'+poly(prev)+'" fill="none" stroke="#b9bdc6" stroke-width="2" stroke-dasharray="5 4"/>';
+ g+='<polygon points="'+poly(v)+'" fill="#ffd23f55" stroke="#ffd23f" stroke-width="3"/>';
+ v.forEach(function(x,i){var p=pt(x,i);g+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4" fill="#ffd23f"/>';});
+ var lab=[["伝わる",c,c-r-10,"middle"],["形",c+r+8,c+6,"start"],["ことば",c,c+r+24,"middle"],["くり返し",c-r-8,c+6,"end"]];
+ lab.forEach(function(l,i){g+='<text x="'+l[1]+'" y="'+l[2]+'" fill="#f5f5f2" font-size="17" font-weight="700" text-anchor="'+l[3]+'">'+l[0]+' <tspan fill="#ffd23f">'+v[i]+'</tspan></text>';});
+ return '<svg class="radar" viewBox="-80 2 380 222" role="img" aria-label="伝わる'+v[0]+'、形'+v[1]+'、ことば'+v[2]+'、くり返し'+v[3]+'（4がいちばん上）">'+g+'</svg>';
+}
+var CHEER=["よく伝わる文です！","いい調子！","形がしっかりしています。","続けると、どんどん伸びます。"];
+function chkCard(res){
+ if(!res)return "";var a=res.a,v=[a.tell,a.form,a.words,a.rep],sum=v[0]+v[1]+v[2];
+ var allOk=res.rules.every(function(x){return x.ok;});
+ var msg=sum>=11?(allOk?"Perfect! よく伝わる文です。":"Great! 書き方（大文字など）も見ればカンペキ。"):sum>=8?"Good! いい調子です。":"Nice try! 1つずつ近づけていこう。";
+ return '<div class="card chk"><div class="row"><span class="lab go">'+L("checkres")+'</span><b class="en">'+h(res.text)+'</b></div>'+
+  '<div class="chkgrid">'+radar(v,res.prev)+'<div>'+
+  '<div class="praise">'+msg+'</div>'+
+  (res.prev?'<div class="dim" style="font-size:.8rem">点線は前回です。</div>':"")+
+  '<div class="rules">'+res.rules.map(function(x){return '<div>'+(x.ok?'<span class="ok">✓</span> '+x.t:'<span class="tip">・</span> '+x.hint)+'</div>';}).join("")+
+  (res.target&&a.tell<4?'<div><span class="tip">・</span> お手本：<button class="b sm en" data-a="say" data-w="Y" data-t="'+h(res.target)+'">▶ '+h(res.target)+'</button></div>':"")+'</div>'+
+  (res.unk.length?'<div class="unk"><div class="dim">辞書にない言葉（押すと調べられます）</div>'+res.unk.map(function(u){
+    return '<div class="row"><span class="en"><b>'+h(u.w)+'</b></span>'+(u.s.length?'<span class="dim">もしかして</span>'+u.s.map(function(s){return '<button class="b sm en" data-a="words" data-t="'+h(s)+'">'+h(s)+'</button>';}).join(""):'<span class="dim">名前などなら、そのままで大丈夫です。</span>')+'</div>';}).join("")+'</div>':"")+
+  '</div></div></div>';
+}
+function chkBtn(){return '<button class="b" data-a="check">✓ '+L("check")+'</button>';}
+function chkTarget(st){
+ if(S.stage===1)return built(st);
+ if(S.stage===2&&S.conv){var ls=convLines(st);return ls[Math.min(S.conv.i,ls.length-1)][1];}
+ if(S.stage===3)return S.lvSel<3?builtLv(st,S.lvSel):"";
+ return "";
+}
+
 /* ---------- 動き ---------- */
 function freshInp(ctx){return {ctx:ctx,method:"",text:"",img:"",caps:false};}
 function ansInp(lv){var st=cur();return lv===3?{ctx:"ans",method:"abc",text:"",img:"",caps:false}:{ctx:"ans",method:"keep",text:builtLv(st,lv),img:"",caps:false};}
@@ -798,13 +896,15 @@ function doSave(){
  if(a.method==="photo"){img=a.img;if(!img){toast("まだ写真がありません");return;}}
  if((a.method==="abc"||a.method==="voice"||a.method==="keep")&&!text){toast("まだ文がありません");return;}
  if(/[\w.+-]+@[\w-]+\.\w+|\d[\d\- ]{8,}\d/.test(text)){toast("この文は使えません。先生に聞いてください");return;}
+ if(a.method==="voice"&&text){text=autoEnd(text);a.text=text;}
+ var chk=null;if(text&&a.method!=="keep"){chk=a.chk&&a.chk.text===text?a.chk:checkText(st,text,chkTarget(st),a.method);}
  var lv=S.lvSel,was=cleared(st),ok=!!text&&formOk(st,text),model=builtLv(st,lv)||built(st)||sample(st);
  S.tries[st.id]=S.tries[st.id]||{};S.tries[st.id][lv]=text||"（手書き）";
  S.answers[st.id]={text:text,method:a.method,ok:ok,img:img};
- S.saved={text:text,method:a.method,ok:ok,img:img,model:model,newly:!was&&cleared(st),praise:PRAISE[Math.floor(Math.random()*PRAISE.length)]};
+ S.saved={chk:chk,text:text,method:a.method,ok:ok,img:img,model:model,newly:!was&&cleared(st),praise:PRAISE[Math.floor(Math.random()*PRAISE.length)]};
  S.hw.full=false;store();render();
  var sid=st.id,s=sel(st);
- run("saveAnswer",{theme:T().id,step:sid,method:a.method,text:text,model:model,ok:ok,img:img,choice:{lv:lv,x:s.x,slv:s.lv}},function(r){
+ run("saveAnswer",{theme:T().id,step:sid,method:a.method,text:text,model:model,ok:ok,img:img,score:chk?scoreStr(chk.a):"",choice:{lv:lv,x:s.x,slv:s.lv}},function(r){
   if(r&&r.blocked){delete S.tries[sid][lv];delete S.answers[sid];S.saved=null;store();toast("この文は使えません。先生に聞いてください");render();}
   else if(r&&r.fileId&&S.answers[sid])S.answers[sid].fileId=r.fileId;
  });
@@ -847,10 +947,10 @@ var ACT={
  swap:function(d){S.swap=d.v==="1";S.conv=null;S.inp=freshInp("conv");resetHW();},
  conv:function(){S.conv={i:0,mine:{},img:{},praise:PRAISE[Math.floor(Math.random()*PRAISE.length)]};S.inp=freshInp("conv");convNext();return false;},
  said:function(d){var c=S.conv;if(!c)return false;
-  if(d.v==="use"){var t=inpText(),im=S.inp.method==="hand"&&!t?hwImage():"";if(!t&&!im){toast("まだ入れていません");return false;}c.mine[c.i]=t||"（手書き）";if(im)c.img[c.i]=im;if(t)speak(t,null,"Y");}
+  if(d.v==="use"){var t=inpText();if(t&&S.inp.method==="voice")t=autoEnd(t);var im=S.inp.method==="hand"&&!t?hwImage():"";if(!t&&!im){toast("まだ入れていません");return false;}c.mine[c.i]=t||"（手書き）";if(im)c.img[c.i]=im;if(t)speak(t,null,"Y");}
   c.i++;S.inp=freshInp("conv");resetHW();
   setTimeout(convNext,d.v==="use"?1200:0);if(d.v==="use")render();return false;},
- imethod:function(d){var a=S.inp;
+ imethod:function(d){var a=S.inp;a.chk=null;
   if(a.method===d.v&&a.ctx!=="ans"){a.method="";resetHW();return;}
   a.method=d.v;delete a.read;a.kbOpen=false;a.img="";resetHW();
   if(d.v==="keep")a.text=builtLv(cur(),S.lvSel);
@@ -874,6 +974,9 @@ var ACT={
   return false;
  },
  save:function(){doSave();return false;},
+ check:function(){var st=cur(),a=S.inp,t=inpText();
+  if(!t){toast(a.method==="hand"||a.method==="photo"?(GAS?"「読み取る」を押してから点検します":"ABCキーボードで文を入れてから点検します"):"まだ文がありません");return false;}
+  var res=checkText(st,t,chkTarget(st),a.method);if(res.auto)a.text=res.text;a.chk=res;},
  note:function(){doNote();return false;},
  redo:function(){S.saved=null;S.inp=ansInp(S.lvSel);resetHW();},
  more:function(){var st=cur(),n=nextUntried(st,S.lvSel);if(n>=0)S.lvSel=n;S.saved=null;S.inp=ansInp(S.lvSel);resetHW();},
@@ -887,7 +990,7 @@ var ACT={
  dw:function(d){S.dsel=+d.v;var x=dictAll().filter(function(e){return e.id===S.dsel;})[0];if(x)speak(x.w.replace(/\(.*?\)/g,""));},
  dsrc:function(d){S.dsrc=d.v;S.dsel=null;store();},
  dlv:function(d){S.dlv=d.v;S.dsel=null;},
- words:function(d){S.words={t:d.t,sel:""};renderOv();return false;},
+ words:function(d){var one=/^[A-Za-z']+$/.test(d.t);S.words={t:d.t,sel:one?d.t:""};if(one)speak(d.t);renderOv();return false;},
  wsel:function(d){S.words.sel=d.v;speak(d.v);renderOv();return false;},
  wclose:function(){S.words=null;renderOv();return false;},
  img:function(d){toast("読み込み中…");run("getImage",d.v,function(r){if(r){S.imgs[d.v]=r;render();}});return false;},
@@ -907,6 +1010,21 @@ document.addEventListener("click",function(e){
 function saveScroll(){return [].map.call(document.querySelectorAll(".pane,.main"),function(p){return p.scrollTop;});}
 function restoreScroll(sc){[].forEach.call(document.querySelectorAll(".pane,.main"),function(p,i){if(sc[i])p.scrollTop=sc[i];});}
 window.addEventListener("resize",function(){if($("cv"))mountHW();});
+/* iPad：キーボード（音声入力を含む）が下から出てきたら、入力欄が隠れないように、
+   入力欄を画面の上のほうへ自動で上げる。生徒が自分でスクロールしなくてよいように。（v0.13） */
+function isField(el){return el&&/^(TEXTAREA|INPUT)$/.test(el.tagName)&&el.type!=="file";}
+function showFocus(){
+ var el=document.activeElement;if(!isField(el))return;
+ var p=el.closest(".pane,.main,.modal .card");if(!p)return;
+ var r=el.getBoundingClientRect(),pr=p.getBoundingClientRect(),want=pr.top+Math.min(80,pr.height*0.12);
+ if(Math.abs(r.top-want)>8)p.scrollTop+=r.top-want;
+}
+var kbdT=null;
+document.addEventListener("focusin",function(e){if(!isField(e.target))return;clearTimeout(kbdT);document.documentElement.classList.add("kbd");
+ [50,350,800].forEach(function(t){setTimeout(showFocus,t);});});
+document.addEventListener("focusout",function(e){if(!isField(e.target))return;kbdT=setTimeout(function(){if(!isField(document.activeElement))document.documentElement.classList.remove("kbd");},400);});
+window.addEventListener("resize",function(){setTimeout(showFocus,60);});
+if(window.visualViewport)window.visualViewport.addEventListener("resize",function(){setTimeout(showFocus,60);});
 try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}catch(e){}
 
 /* ---------- 始まり ---------- */
