@@ -28,9 +28,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .b.sm{padding:.2rem .55rem}
 .b[disabled]{opacity:.4}
 .main{flex:1;min-height:0;overflow:auto;padding:.7rem}
-.split{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--line)}
+.split{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:2px;background:var(--line);overflow:hidden}
 .pane{background:var(--bg);min-height:0;min-width:0;overflow:auto;padding:.7rem;display:flex;flex-direction:column;gap:.6rem}
-@media (orientation:portrait){.split{grid-template-columns:1fr;grid-template-rows:minmax(0,2fr) minmax(0,3fr)}}
+@media (orientation:portrait){.split{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,2fr) minmax(0,3fr)}}
 .card{background:var(--panel);border:2px solid var(--line);border-radius:.8rem;padding:.6rem .8rem}
 .lab{display:inline-block;font-size:.8rem;font-weight:700;padding:.05rem .5rem;border-radius:.4rem;border:2px solid currentColor;margin-right:.4rem;white-space:nowrap}
 .lab.rev{color:var(--rev)}.lab.new{color:var(--new)}.lab.go{color:var(--go)}.lab.kai{color:var(--kai)}.lab.you{color:var(--you)}
@@ -112,6 +112,8 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid var(--line);pad
 /* v0.6 部品が縮められて文字がつぶれないようにする */
 .pane>*,.main>*,.route>*,.hw>.row,.card>*{flex-shrink:0}
 .pane>.hw{flex:1 0 17rem}
+.bw{display:block;min-width:0}.bw>button{width:100%}
+.say.tier+.b{margin-top:.6rem}
 .wp>span{min-width:0;overflow-wrap:anywhere}
 .typed,.sent,.say .en{overflow-wrap:anywhere}
 .b{line-height:1.3}
@@ -133,7 +135,7 @@ var MODE="<?= mode ?>";
 (function(){
 "use strict";
 var GAS=(MODE==="private")&&typeof google!=="undefined"&&google.script&&google.script.run;
-var VERSION="v0.11";
+var VERSION="v0.12";
 /* ---------- CEFR 辞書（A1〜A2）---------- */
 /* [番号, 見出し語, レベル, 品詞, 意味, 例文, 例文の訳, 別の書き方]
    語彙とレベル：CEFR-J Wordlist Version 1.5（東京外国語大学 投野由紀夫）／意味：EJDict-hand（パブリックドメイン）をもとに作成／例文：Sunlit Path オリジナル */
@@ -329,14 +331,22 @@ function nowStr(){var d=new Date();return (d.getMonth()+1)+"/"+d.getDate()+" "+(
 /* ---------- 読み上げ ---------- */
 /* 「～」の所は少し間をあけて読む。A: / B: のある文は、Kai とあなたの声で分けて読む。 */
 var VK=null,VY=null,sq=0;
-/* 声の選び方：遊び用・しわがれ声・古い機械声を外し、聞きやすい声から選ぶ。Kai は男性寄り、あなたは女性寄り。 */
+/* 声の選び方（v0.12）：遊び用・しわがれ声・ささやき声などを外し、聞きやすい声から選ぶ。Kai は男性寄り、あなたは女性寄り。
+   iPad / iPhone では声の名前が日本語になることがあるため、名前だけでなく声の識別子（voiceURI）でも見分ける。 */
 var BADV=/albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|ralph|kathy|princess|bruce|agnes|vicki|victoria|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley/i;
-var KAI_P=["Microsoft Andrew","Microsoft Guy","Microsoft Christopher","Microsoft Eric","Microsoft Brian","Microsoft David","Google UK English Male","Aaron","Alex","Daniel","Tom","Evan","Nathan"];
-var YOU_P=["Google US English","Samantha","Microsoft Ava","Microsoft Aria","Microsoft Jenny","Microsoft Emma","Microsoft Michelle","Microsoft Zira","Nicky","Allison","Ava","Susan","Zoe","Karen","Moira","Tessa","Google UK English Female","Serena","Kate"];
-function rankV(v,pref){var n=v.name,i;for(i=0;i<pref.length;i++){if(n.indexOf(pref[i])===0||n.indexOf(pref[i]+" ")>=0)break;}
- var s=(i<pref.length?100-i:0)+(/natural|neural|premium|enhanced|online/i.test(n)?20:0)+(/^en[-_]US/i.test(v.lang)?10:/^en[-_](GB|AU|CA|IE|NZ)/i.test(v.lang)?5:0)+(v.localService?2:0);return s;}
+var BADURI=/speech\.synthesis\.voice\.|eloquence/i; /* Apple の遊び用の声と、古い機械声（Eloquence）*/
+var APPLE=/Apple/i.test(navigator.vendor||"")||/iPad|iPhone|iPod/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+var IOS=/iPad|iPhone|iPod/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+var KAI_P=["Microsoft Andrew","Microsoft Guy","Microsoft Christopher","Microsoft Eric","Microsoft Brian","Microsoft David","Google UK English Male","Aaron","Arthur","Daniel","Gordon","Alex","Tom","Evan","Nathan","Oliver","Rishi"];
+var YOU_P=["Google US English","Samantha","Microsoft Ava","Microsoft Aria","Microsoft Jenny","Microsoft Emma","Microsoft Michelle","Microsoft Zira","Nicky","Ava","Zoe","Allison","Susan","Karen","Moira","Tessa","Martha","Catherine","Google UK English Female","Serena","Kate"];
+function badVoice(v){return BADV.test(v.name)||BADURI.test(v.voiceURI||"");}
+/* 高音質の声（拡張・プレミアム）。Mac の Chrome では高音質の声が音割れするため、Apple の Safari 系（iPad を含む）でだけ優先する。 */
+function hiQ(v){return /premium|enhanced|拡張|プレミアム/i.test(v.name+" "+(v.voiceURI||""));}
+function rankV(v,pref){var n=v.name,u=v.voiceURI||"",i,q;for(i=0;i<pref.length;i++){q=pref[i];if(n.indexOf(q)===0||n.indexOf(q+" ")>=0||u.indexOf("."+q)>=0||u.indexOf("_"+q+"_")>=0)break;}
+ var s=(i<pref.length?100-i:0)+(/natural|neural|online/i.test(n)?20:0)+(APPLE&&hiQ(v)?30:0)+(APPLE&&/siri_/i.test(v.voiceURI||"")?5:0)
+  +(/^en[-_]US/i.test(v.lang)?10:/^en[-_](GB|AU|CA|IE|NZ)/i.test(v.lang)?5:0)+(v.localService?2:0);return s;}
 function pickVoice(){try{
- var all=speechSynthesis.getVoices().filter(function(v){return /^en/i.test(v.lang)&&!BADV.test(v.name);});
+ var all=speechSynthesis.getVoices().filter(function(v){return /^en/i.test(v.lang)&&!badVoice(v);});
  if(!all.length){VK=VY=null;return;}
  var best=function(pref,not){var b=null,bs=-1;all.forEach(function(v){if(v===not)return;var s=rankV(v,pref);if(s>bs){bs=s;b=v;}});return b;};
  VY=best(YOU_P,null);VK=best(KAI_P,VY)||VY;
@@ -349,7 +359,8 @@ function segs(t,who){
  return out;
 }
 function speakSeq(items,done){
- var id=++sq;try{speechSynthesis.cancel();}catch(e){}
+ var id=++sq,busy=false;try{busy=speechSynthesis.speaking||speechSynthesis.pending;speechSynthesis.cancel();}catch(e){}
+ if(!VY)pickVoice();
  var q=[];items.forEach(function(it,j){var s=segs(it.t,it.w);if(j>0&&s.length)s[0].pre=Math.max(s[0].pre,it.gap||450);q=q.concat(s);});
  function say(i){
   if(id!==sq)return;if(i>=q.length){if(done)done();return;}
@@ -358,7 +369,9 @@ function speakSeq(items,done){
    var f=false,fin=function(){if(!f){f=true;next(i);}};u.onend=fin;u.onerror=fin;speechSynthesis.speak(u);}catch(e){next(i);}
  }
  function next(i){var n=q[i+1];if(!n){say(i+1);return;}if(n.pre)setTimeout(function(){say(i+1);},n.pre);else say(i+1);}
- if(q.length&&q[0].pre)setTimeout(function(){say(0);},q[0].pre);else say(0);
+ /* iPad：止めた直後にすぐ読むと、声が乱れたりかすれたりするため、少し待つ */
+ var w0=Math.max(q.length?q[0].pre:0,IOS&&busy?250:0);
+ if(w0)setTimeout(function(){say(0);},w0);else say(0);
 }
 function speak(t,done,who){speakSeq([{t:t,w:who}],done);}
 
@@ -681,11 +694,23 @@ function render(){
  else if(GAS&&!S.nick)v=vRegister();
  else v={home:vHome,themes:vThemes,route:vRoute,funcs:vFuncs,step:vStep,dict:vDict,rec:vRec,notes:vNotes,teacher:vTeacher}[S.view]();
  $("app").innerHTML=v;
+ wrapBtns();
  if($("cv"))mountHW();
  var ph=$("ph");if(ph)ph.onchange=onPhoto;
  var ta=$("ta");if(ta)ta.oninput=function(){S.inp.text=ta.value;};
 }
 
+/* iPad（Safari）では、縦に並ぶ箱（flex）の中にボタンを直接置くと、
+   ボタンの高さが1行分に縮められ、2行目の文字が下のボタンに重なる。
+   そのため、ボタンを1つずつ普通の箱（div）で包んでから並べる。（v0.12） */
+function wrapBtns(){
+ [].forEach.call(document.querySelectorAll(".pane,.route,.dl"),function(box){
+  [].slice.call(box.children).forEach(function(el){
+   if(el.tagName!=="BUTTON")return;
+   var w=document.createElement("div");w.className="bw";box.insertBefore(w,el);w.appendChild(el);
+  });
+ });
+}
 /* ---------- 手書き ---------- */
 var LW=1400,LH=900;
 function drawStrokes(ctx,k){
