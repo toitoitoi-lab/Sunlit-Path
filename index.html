@@ -115,6 +115,12 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid var(--line);pad
 .bw{display:block;min-width:0}.bw>button{width:100%}
 .chk{border-color:var(--go)}
 html.kbd .pane,html.kbd .main{padding-bottom:60vh}
+.cals{display:flex;flex-wrap:wrap;gap:1rem;margin-top:.5rem}.cal{flex:1 1 15rem;min-width:0}
+.cg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:.3rem}
+.cw{text-align:center;font-size:.8rem;color:var(--dim)}
+.cd{text-align:center;border:1px solid var(--line);border-radius:.4rem;min-height:2.4rem;font-size:.85rem;color:var(--dim);display:flex;flex-direction:column;justify-content:center}
+.cd.on{border:2px solid var(--go);background:#3a3210;color:var(--tx);font-weight:700}.cd.on{line-height:1.1}
+ul.good{margin:.4rem 0 0;padding-left:1.4rem}ul.good li{margin:.25rem 0;font-size:1.1rem}
 .chkgrid{display:flex;flex-direction:column;gap:.4rem;margin-top:.3rem}.chkgrid>*{flex-shrink:0}.chk .praise{font-size:1.15rem}
 .radar{width:100%;max-width:21rem;height:auto;display:block;margin:0 auto}
 .rules>div{margin:.15rem 0}.rules .ok{color:var(--you);font-weight:700}.rules .tip{color:var(--go);font-weight:700}
@@ -142,7 +148,7 @@ var MODE="<?= mode ?>";
 (function(){
 "use strict";
 var GAS=(MODE==="private")&&typeof google!=="undefined"&&google.script&&google.script.run;
-var VERSION="v0.13";
+var VERSION="v0.14";
 /* ---------- CEFR 辞書（A1〜A2）---------- */
 /* [番号, 見出し語, レベル, 品詞, 意味, 例文, 例文の訳, 別の書き方]
    語彙とレベル：CEFR-J Wordlist Version 1.5（東京外国語大学 投野由紀夫）／意味：EJDict-hand（パブリックドメイン）をもとに作成／例文：Sunlit Path オリジナル */
@@ -311,15 +317,15 @@ var LEVELS=[["やさしい","言い方 1つでクリア（言い方1だけでも
 var TIER4=TIERS.concat([["自分の言葉","オリジナル"]]);
 
 /* ---------- 状態 ---------- */
-var S={prac:{},lastChk:{},view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
+var S={prac:{},lastChk:{},ev:[],myrec:null,view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
  sel:{},answers:{},tries:{},notes:[],notesLoaded:!GAS,noteUrl:"",inp:null,lvSel:0,
  hw:{strokes:[],full:false,thick:true},conv:null,swap:false,
  dict:null,dl:"a",dq:"",dqOn:false,dsel:null,tlist:null,imgs:{},saved:null,words:null};
 var KEY="sunlit_path_05";
-function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
+function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk","ev"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
  if(!GAS){if(o.answers)S.answers=o.answers;if(o.tries)S.tries=o.tries;if(o.notes)S.notes=o.notes;}}catch(e){}}
 function store(){try{var a={};Object.keys(S.answers).forEach(function(k){var x=S.answers[k];a[k]={text:x.text,method:x.method,ok:x.ok};});
- var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk};
+ var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk,ev:S.ev};
  if(!GAS)o.notes=S.notes.map(function(n){return {time:n.time,label:n.label,text:n.text};});
  localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
 function run(fn,arg,cb){
@@ -427,7 +433,7 @@ var UIL={home:["Home","ホーム"],route:["Route","{道|みち}"],themes:["Theme
  showkb:["Show keyboard","ABCキーボードを{出|だ}す"],caps:["Caps","{大文字|おおもじ}"],space:["Space","スペース"],photobtn:["Take / choose a photo","{写真|しゃしん}を{撮|と}る・{選|えら}ぶ"],
  m_keep:["Chosen sentence","{選|えら}んだ{文|ぶん}"],m_abc:["ABC keyboard","ABCキーボード"],m_voice:["Voice","{声|こえ}で"],m_hand:["Handwriting","{手書|てが}き"],m_photo:["Photo","{写真|しゃしん}"],
  t0:["Way 1","{言|い}い{方|かた}1"],t1:["Way 2","{言|い}い{方|かた}2"],t2:["Way 3","{言|い}い{方|かた}3"],t3:["My own","{自分|じぶん}の{言葉|ことば}"],
- ts0:["",""],ts1:["",""],ts2:["",""],check:["Check","{点検|てんけん}する"],checkres:["Check","{点検|てんけん}"],ts3:["Original","オリジナル"],
+ ts0:["",""],ts1:["",""],ts2:["",""],check:["Check","{点検|てんけん}する"],h_mine:["My learning","{学|まな}びの{記録|きろく}"],checkres:["Check","{点検|てんけん}"],ts3:["Original","オリジナル"],
  lv0:["Easy","やさしい"],lv1:["Standard","{標準|ひょうじゅん}"],lv2:["Challenge","{実践|じっせん}"],level:["Level","{取|と}り{組|く}み{方|かた}"],
  h_theme:["Start from a theme","テーマから{進|すす}む"],h_expr:["Start from expressions","{表現|ひょうげん}から{進|すす}む"],h_notes:["My notes","{自分|じぶん}のノート"],h_dict:["Dictionary","{辞書|じしょ}"],
  h_rec:["My records","{自分|じぶん}の{記録|きろく}"],h_teacher:["Teacher page","{先生|せんせい}のページ"],nexthere:["Next","{次|つぎ}はここ"],goal:["Goal","ゴール"],new:["New","{新|あたら}しい{表現|ひょうげん}"],rev:["Review","{復習|ふくしゅう}"],
@@ -513,6 +519,7 @@ function vHome(){
   '<button class="hb" data-a="go" data-v="funcs"><b>'+L("h_expr")+'</b>言葉の働きと文法からさがす</button>'+
   '<button class="hb" data-a="go" data-v="notes"><b>'+L("h_notes")+'</b>気に入った表現・書いた文</button>'+
   '<button class="hb" data-a="go" data-v="dict"><b>'+L("h_dict")+'</b>CEFR（A1〜A2）2,557語'+(S.dict?'・はば単 2,500語':"")+'</button>'+
+  '<button class="hb" data-a="go" data-v="mine"><b>'+L("h_mine")+'</b>学んだ日・点検のチャート・できるようになったこと</button>'+
   '<button class="hb" data-a="go" data-v="rec"><b>'+L("h_rec")+'</b>保存した文・書いたもの</button>'+
   (S.teacher?'<button class="hb" data-a="go" data-v="teacher"><b>'+L("h_teacher")+'</b>生徒の記録を見る</button>':"")+
   '</div></div>';
@@ -686,7 +693,7 @@ function vTeacher(){
   '<table><tr><th>日時</th><th>クラス</th><th>ニックネーム</th><th>手順</th><th>言い方</th><th>答え方</th><th>文</th><th>型</th><th>点検</th><th>画像</th></tr>'+t.map(function(r){
    return '<tr><td>'+h(r.time)+'</td><td>'+h(r.cls)+'</td><td>'+h(r.nick)+'</td><td>'+h(r.step)+'</td><td>'+h(r.lv!==""&&r.lv!=null&&TIER4[r.lv]?TIER4[r.lv][0]:"")+'</td><td>'+h(METHODS[r.method]||r.method)+'</td><td class="en">'+h(r.text)+'</td><td>'+(r.ok?"◎":"―")+'</td><td style="font-size:.8rem">'+h(r.score||"")+'</td><td>'+
     (r.fileId?(S.imgs[r.fileId]?'<img class="photo" src="'+S.imgs[r.fileId]+'" alt="">':'<button class="b sm" data-a="img" data-v="'+h(r.fileId)+'">見る</button>'):"")+'</td></tr>';}).join("")+'</table>');
- return bar(L("h_teacher"),"新しい順に200件")+'<div class="main"><div class="row"><button class="b" data-a="treload">'+L("reload")+'</button><span class="dim">画面に出るのはクラスとニックネームだけです。手順の「t4-2」はテーマ4の手順2。生徒のノート（Google ドキュメント）はドライブの Sunlit_Path_records にあります。</span></div>'+body+'</div>';
+ return bar(L("h_teacher"),"新しい順に200件")+'<div class="main"><div class="row"><button class="b go" data-a="build">集計する（学んだ日・成績素点・学びの記録）</button><span class="dim">毎晩も自動で集計します。結果はスプレッドシートの grades・grades_detail・days に入ります。重みや期間は settings で変えられます。</span></div><div class="row"><button class="b" data-a="treload">'+L("reload")+'</button><span class="dim">画面に出るのはクラスとニックネームだけです。手順の「t4-2」はテーマ4の手順2。生徒のノート（Google ドキュメント）はドライブの Sunlit_Path_records にあります。</span></div>'+body+'</div>';
 }
 function vRegister(){
  return bar("Sunlit Path","初めに")+'<div class="main"><div class="route"><div class="card"><div class="big">ニックネームを決めよう</div>'+
@@ -700,7 +707,7 @@ function render(){
  var v;
  if(!S.ready)v=bar("Sunlit Path","")+'<div class="main dim">読み込み中…</div>';
  else if(GAS&&!S.nick)v=vRegister();
- else v={home:vHome,themes:vThemes,route:vRoute,funcs:vFuncs,step:vStep,dict:vDict,rec:vRec,notes:vNotes,teacher:vTeacher}[S.view]();
+ else v={home:vHome,themes:vThemes,route:vRoute,funcs:vFuncs,step:vStep,dict:vDict,rec:vRec,notes:vNotes,teacher:vTeacher,mine:vMine}[S.view]();
  $("app").innerHTML=v;
  wrapBtns();
  if($("cv"))mountHW();
@@ -872,6 +879,82 @@ function chkTarget(st){
  return "";
 }
 
+/* ---------- 学びの記録（v0.14） ----------
+   点検・保存・やり取り・ノートを、学校版はサーバーの events に、公開版はこの端末に残す。
+   生徒の画面には、点数（観点の素点）は出さない。チャートと「できるようになったこと」だけ。 */
+function ymdNow(){var d=new Date();return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);}
+function evBase(type){var st=cur();return {type:type,theme:T().id,step:st.id,label:T().ja+" ／ "+(S.step+1)+" "+st.title,
+ lv:S.stage===3?S.lvSel:sel(st).lv,own:S.stage===3&&S.lvSel===3,method:S.inp?S.inp.method:""};}
+function logEv(type,res,chart){
+ var o=evBase(type);
+ if(res){o.a=[res.a.tell,res.a.form,res.a.words,res.a.rep];o.rok=res.rules.filter(function(x){return x.ok;}).length;o.rn=res.rules.length;}
+ if(chart)o.chart=chart;
+ /* この端末にも残す（公開版の記録画面と、学校版で通信できなかったときのため） */
+ S.ev.push([ymdNow(),o.step,type,o.lv,o.a||null,o.own?1:0]);if(S.ev.length>3000)S.ev=S.ev.slice(-3000);store();
+ if(GAS){try{google.script.run.withFailureHandler(function(){}).logEvent(o);}catch(e){}}
+ if(S.myrec)S.myrec=null; /* 記録画面を次に開いたとき読み直す */
+}
+/* 保存したときのチャートを画像にする（学びの記録ドキュメント用。白い紙に合う色） */
+function radarPng(v,cb){
+ try{
+  var svg=radar(v,null).replace('<svg class="radar"','<svg xmlns="http://www.w3.org/2000/svg" width="570" height="333"')
+   .replace(/#3a3f4a/g,"#c9ccd3").replace(/#f5f5f2/g,"#222222").replace(/#ffd23f55/g,"#f5c40055").replace(/#ffd23f/g,"#d9a400");
+  svg=svg.replace(/<svg([^>]*)>/,'<svg$1><rect x="-80" y="2" width="380" height="222" fill="#ffffff"/>');
+  var img=new Image();
+  img.onload=function(){try{var c=document.createElement("canvas");c.width=570;c.height=333;var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,570,333);x.drawImage(img,0,0,570,333);cb(c.toDataURL("image/png"));}catch(e){cb("");}};
+  img.onerror=function(){cb("");};
+  img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+ }catch(e){cb("");}
+}
+/* 記録の集まりから、画面に出すものを作る */
+function recSummary(ev,thr){
+ var days={},steps={},convs=0,notes=0,own=0;
+ ev.forEach(function(e){var d=e[0],st=e[1],ty=e[2],lv=e[3],a=e[4];
+  if(ty==="save")days[d]=(days[d]||0)+1;
+  if(ty==="conv")convs++;if(ty==="note")notes++;if(ty==="save"&&e[5])own++;
+  if((ty==="check"||ty==="save")){var s=steps[st]=steps[st]||{n:0,lv:{},a:[]};s.n++;if(lv!=null)s.lv[lv]=1;if(a)s.a.push(a);}});
+ var learned=Object.keys(days).filter(function(d){return days[d]>=(thr||1);}).sort();
+ var all=[];Object.keys(steps).forEach(function(k){steps[k].a.forEach(function(a){all.push(a);});});
+ var avg=function(list){if(!list.length)return null;var t=[0,0,0];list.forEach(function(a){t[0]+=a[0];t[1]+=a[1];t[2]+=a[2];});return t.map(function(x){return Math.round(x/list.length*10)/10;});};
+ var keys=Object.keys(steps),rep=keys.length?Math.round(keys.reduce(function(t,k){return t+Math.min(4,steps[k].n);},0)/keys.length*10)/10:0;
+ var first=avg(all.slice(0,5)),last=avg(all.slice(-5));
+ var good=[];
+ if(learned.length)good.push("アプリで学んだ日："+learned.length+"日");
+ var f4=all.filter(function(a){return a[1]>=4;}).length;if(f4)good.push("「3つの言い方」の形を使えた文："+f4);
+ if(own)good.push("自分の言葉で作った文："+own);
+ var vary=keys.filter(function(k){return Object.keys(steps[k].lv).length>=2;}).length;if(vary)good.push("いくつかの言い方を使えた場面："+vary);
+ if(convs)good.push("Kai とのやり取りを最後までした回数："+convs);
+ if(notes)good.push("ノートに残した文："+notes);
+ var grew=keys.filter(function(k){var a=steps[k].a;if(a.length<2)return false;var s=function(x){return x[0]+x[1]+x[2];};return s(a[a.length-1])>s(a[0]);}).length;
+ if(grew)good.push("練習して前より良くなった場面："+grew);
+ return {learned:learned,last:last?[last[0],last[1],last[2],rep]:null,first:first&&all.length>5?[first[0],first[1],first[2],rep]:null,good:good,steps:keys.length};
+}
+function calHtml(learned){
+ var set={};learned.forEach(function(d){set[d]=1;});
+ var now=new Date(),out="";
+ for(var m=1;m>=0;m--){
+  var y=now.getFullYear(),mo=now.getMonth()-m;if(mo<0){mo+=12;y--;}
+  var first=new Date(y,mo,1),dim=new Date(y,mo+1,0).getDate(),cells="";
+  "日月火水木金土".split("").forEach(function(w){cells+='<div class="cw">'+w+'</div>';});
+  for(var i=0;i<first.getDay();i++)cells+='<div></div>';
+  for(var d=1;d<=dim;d++){var k=y+"-"+("0"+(mo+1)).slice(-2)+"-"+("0"+d).slice(-2);cells+='<div class="cd'+(set[k]?" on":"")+'">'+(set[k]?"★":"")+'<span>'+d+'</span></div>';}
+  out+='<div class="cal"><b>'+y+'年'+(mo+1)+'月</b><div class="cg">'+cells+'</div></div>';
+ }
+ return '<div class="cals">'+out+'</div>';
+}
+function vMine(){
+ var r=GAS?S.myrec:{ev:S.ev,thr:1,url:""};
+ if(!r){if(!S.myrecLoading){S.myrecLoading=true;run("getMyRecord",null,function(x){S.myrecLoading=false;S.myrec=x||{ev:S.ev,thr:1,url:""};render();});}
+  return bar(L("h_mine"),"")+'<div class="main dim">読み込み中…</div>';}
+ var sm=recSummary(r.ev||[],r.thr);
+ return bar(L("h_mine"),"")+'<div class="main"><div class="route">'+
+  '<div class="card"><div class="big">学んだ日 <span class="praise">'+sm.learned.length+'日</span></div><div class="dim">★ がアプリで学んだ日です（保存をした日）。</div>'+calHtml(sm.learned)+'</div>'+
+  '<div class="card"><b>点検のチャート</b>'+(sm.last?radar(sm.last,sm.first)+'<div class="dim">黄色は最近の5回、点線は最初の5回です（4がいちばん外側）。</div>':'<div class="dim">まだ点検していません。「表現する」や「自分の文」で「✓ 点検する」を押してみよう。</div>')+'</div>'+
+  '<div class="card"><b>できるようになったこと</b>'+(sm.good.length?'<ul class="good">'+sm.good.map(function(g){return '<li>'+h(g)+'</li>';}).join("")+'</ul>':'<div class="dim">これから増えていきます。</div>')+'</div>'+
+  (r.url?'<a class="b go" style="display:inline-block;text-decoration:none" href="'+h(r.url)+'" target="_blank">📄 学びの記録（ドキュメント）を開く</a><div class="dim">ドキュメントは、学んだ日の夜に書き足されます。</div>':(GAS?'<div class="dim">学びの記録のドキュメントは、学んだ日の夜にできます。</div>':'<div class="dim">公開版では、この端末の中だけに記録しています。</div>'))+
+  '</div></div>';
+}
+
 /* ---------- 動き ---------- */
 function freshInp(ctx){return {ctx:ctx,method:"",text:"",img:"",caps:false};}
 function ansInp(lv){var st=cur();return lv===3?{ctx:"ans",method:"abc",text:"",img:"",caps:false}:{ctx:"ans",method:"keep",text:builtLv(st,lv),img:"",caps:false};}
@@ -886,7 +969,7 @@ function setStage(n){
 function convNext(){
  var lines=convLines(cur()),c=S.conv;if(!c)return;
  render();
- if(c.i>=lines.length)return;
+ if(c.i>=lines.length){if(!c.logged){c.logged=true;logEv("conv",null);}return;}
  if(lines[c.i][0]==="K"){var tok=c;speak(lines[c.i][1],function(){if(S.conv!==tok)return;c.i++;setTimeout(convNext,300);},"K");}
 }
 function inpText(){var a=S.inp,ta=$("ta");if(ta&&a)a.text=ta.value;return a?norm(a.text):"";}
@@ -903,6 +986,7 @@ function doSave(){
  S.answers[st.id]={text:text,method:a.method,ok:ok,img:img};
  S.saved={chk:chk,text:text,method:a.method,ok:ok,img:img,model:model,newly:!was&&cleared(st),praise:PRAISE[Math.floor(Math.random()*PRAISE.length)]};
  S.hw.full=false;store();render();
+ if(chk&&GAS)radarPng([chk.a.tell,chk.a.form,chk.a.words,chk.a.rep],function(png){logEv("save",chk,png);});else logEv("save",chk);
  var sid=st.id,s=sel(st);
  run("saveAnswer",{theme:T().id,step:sid,method:a.method,text:text,model:model,ok:ok,img:img,score:chk?scoreStr(chk.a):"",choice:{lv:lv,x:s.x,slv:s.lv}},function(r){
   if(r&&r.blocked){delete S.tries[sid][lv];delete S.answers[sid];S.saved=null;store();toast("この文は使えません。先生に聞いてください");render();}
@@ -920,7 +1004,7 @@ function doNote(){
  if(!text&&!img){toast("まだ文がありません");return;}
  if(/[\w.+-]+@[\w-]+\.\w+|\d[\d\- ]{8,}\d/.test(text)){toast("この文は使えません。先生に聞いてください");return;}
  var lab=T().ja+" ／ "+(S.step+1)+" "+st.title,n={time:nowStr(),label:lab,text:text,img:img};
- S.notes.unshift(n);store();toast("★ ノートに残しました");
+ S.notes.unshift(n);store();toast("★ ノートに残しました");logEv("note",null);
  run("saveNote",{theme:T().id,step:st.id,label:lab,text:text,img:img},function(r){
   if(r&&r.blocked){S.notes.splice(S.notes.indexOf(n),1);toast("この文は使えません。先生に聞いてください");}
   else if(r&&r.url)S.noteUrl=r.url;
@@ -976,7 +1060,7 @@ var ACT={
  save:function(){doSave();return false;},
  check:function(){var st=cur(),a=S.inp,t=inpText();
   if(!t){toast(a.method==="hand"||a.method==="photo"?(GAS?"「読み取る」を押してから点検します":"ABCキーボードで文を入れてから点検します"):"まだ文がありません");return false;}
-  var res=checkText(st,t,chkTarget(st),a.method);if(res.auto)a.text=res.text;a.chk=res;},
+  var res=checkText(st,t,chkTarget(st),a.method);if(res.auto)a.text=res.text;a.chk=res;logEv("check",res);},
  note:function(){doNote();return false;},
  redo:function(){S.saved=null;S.inp=ansInp(S.lvSel);resetHW();},
  more:function(){var st=cur(),n=nextUntried(st,S.lvSel);if(n>=0)S.lvSel=n;S.saved=null;S.inp=ansInp(S.lvSel);resetHW();},
@@ -994,6 +1078,7 @@ var ACT={
  wsel:function(d){S.words.sel=d.v;speak(d.v);renderOv();return false;},
  wclose:function(){S.words=null;renderOv();return false;},
  img:function(d){toast("読み込み中…");run("getImage",d.v,function(r){if(r){S.imgs[d.v]=r;render();}});return false;},
+ build:function(){toast("集計しています…");run("buildNow",null,function(r){toast(r&&r.ok?"集計しました（"+r.students+"人・期間 "+r.period+"・記録を書いた日 "+r.docs+"）":"集計できませんでした");});return false;},
  treload:function(){S.tlist=null;run("teacherList",null,function(r){S.tlist=r||[];render();});},
  reg:function(){
   var n=$("rn").value.trim(),c=$("rc").value.trim();if(!n){toast("ニックネームを入れてください");return false;}
