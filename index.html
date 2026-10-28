@@ -20,7 +20,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 #app{height:100vh;height:100dvh;display:flex;flex-direction:column}
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;padding:.4rem .6rem;background:var(--panel);border-bottom:2px solid var(--line)}
 .bar .ttl{font-weight:700;margin-right:auto;min-width:0}
-.bar .ttl small{color:var(--dim);font-weight:400;margin-left:.5rem}
+.bar .ttl small{color:var(--dim);font-weight:400;display:block;font-size:.75rem;line-height:1.2}
+.bar .ttl{line-height:1.25}
 .b{min-height:44px;min-width:44px;padding:.35rem .8rem;border-radius:.6rem;border:2px solid var(--line);background:var(--panel2);text-align:center}
 .b:active{transform:scale(.97)}
 .b.on{border-color:var(--go);background:var(--onbg)}
@@ -138,7 +139,7 @@ html.uija .next::before{content:"次はここ ▼"}
 html.uiruby .next::before{content:"つぎはここ ▼"}
 .ttl ruby rt,.b ruby rt{font-size:.55em}
 .uib{border-color:var(--rev)}
-.thb{border-color:var(--go)}.thb .sw{display:inline-block;width:.9em;height:.9em;border-radius:50%;background:linear-gradient(135deg,var(--go) 0 50%,var(--kai) 50% 100%);vertical-align:-.1em;margin-right:.3em;border:1px solid var(--tx)}
+.thb{border-color:var(--go)}.serb{border-color:var(--line)}.thb .sw{display:inline-block;width:.9em;height:.9em;border-radius:50%;background:linear-gradient(135deg,var(--go) 0 50%,var(--kai) 50% 100%);vertical-align:-.1em;margin-right:.3em;border:1px solid var(--tx)}
 hr.sep{border:0;border-top:2px dashed var(--line);margin:.8rem 0}
 .credit{font-size:.75rem;margin-top:.5rem}
 </style>
@@ -151,7 +152,7 @@ var MODE="<?= mode ?>";
 (function(){
 "use strict";
 var GAS=(MODE==="private")&&typeof google!=="undefined"&&google.script&&google.script.run;
-var VERSION="v0.16";
+var VERSION="v0.17";
 /* ---------- CEFR 辞書（A1〜A2）---------- */
 /* [番号, 見出し語, レベル, 品詞, 意味, 例文, 例文の訳, 別の書き方]
    語彙とレベル：CEFR-J Wordlist Version 1.5（東京外国語大学 投野由紀夫）／意味：EJDict-hand（パブリックドメイン）をもとに作成／例文：Sunlit Path オリジナル */
@@ -320,15 +321,15 @@ var LEVELS=[["やさしい","言い方 1つでクリア（言い方1だけでも
 var TIER4=TIERS.concat([["自分の言葉","オリジナル"]]);
 
 /* ---------- 状態 ---------- */
-var S={kbl:"abc",theme:"night",prac:{},lastChk:{},ev:[],myrec:null,view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
+var S={kbl:"abc",theme:"night",lastTh:{},prac:{},lastChk:{},ev:[],myrec:null,view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
  sel:{},answers:{},tries:{},notes:[],notesLoaded:!GAS,noteUrl:"",inp:null,lvSel:0,
  hw:{strokes:[],full:false,thick:true},conv:null,swap:false,
  dict:null,dl:"a",dq:"",dqOn:false,dsel:null,tlist:null,imgs:{},saved:null,words:null};
 var KEY="sunlit_path_05";
-function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk","ev","theme","kbl"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
+function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk","ev","theme","kbl","lastTh"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
  if(!GAS){if(o.answers)S.answers=o.answers;if(o.tries)S.tries=o.tries;if(o.notes)S.notes=o.notes;}}catch(e){}}
 function store(){try{var a={};Object.keys(S.answers).forEach(function(k){var x=S.answers[k];a[k]={text:x.text,method:x.method,ok:x.ok};});
- var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk,ev:S.ev,theme:S.theme,kbl:S.kbl};
+ var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk,ev:S.ev,theme:S.theme,kbl:S.kbl,lastTh:S.lastTh};
  if(!GAS)o.notes=S.notes.map(function(n){return {time:n.time,label:n.label,text:n.text};});
  localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
 function run(fn,arg,cb){
@@ -348,8 +349,12 @@ function nowStr(){var d=new Date();return (d.getMonth()+1)+"/"+d.getDate()+" "+(
    色の組み合わせを5つ用意し、画面の上の「色」ボタンを押すたびに切りかえる。最初は「夜」（いちばん見やすい）。
    どの色も、文字と背景のコントラストが国際基準（WCAG 2.1 の AA、4.5:1 以上）を満たすものだけにしてある。
    色だけで意味を伝えない（「Kai」「あなた」「言い方1」などの文字を必ず添える）。選んだ色はこの端末に覚えさせる。 */
-var PAL={"night": {"bg": "#0b0c0f", "panel": "#16181d", "panel2": "#1f2229", "line": "#3a3f4a", "tx": "#f5f5f2", "dim": "#b9bdc6", "go": "#ffd23f", "kai": "#5fd4ff", "you": "#9df28a", "new": "#ff9f6b", "rev": "#8fb8ff", "onbg": "#3a3210", "sentbg": "#10210e", "inbg": "#000000", "ongo": "#111111"}, "neon": {"bg": "#0d0221", "panel": "#1a0b3b", "panel2": "#241452", "line": "#5a469c", "tx": "#fdf7ff", "dim": "#cfc5ee", "go": "#ff5ad9", "kai": "#3ee8ff", "you": "#b8ff3e", "new": "#ffb86b", "rev": "#b3afff", "onbg": "#4a0f45", "sentbg": "#1d2a05", "inbg": "#05010f", "ongo": "#1a0014"}, "ocean": {"bg": "#06192e", "panel": "#0c2742", "panel2": "#123352", "line": "#3a6688", "tx": "#f2f8ff", "dim": "#bfd3e8", "go": "#4fe3ff", "kai": "#ffd36b", "you": "#8ff0c4", "new": "#ffb08a", "rev": "#b6ccff", "onbg": "#0f3f57", "sentbg": "#0b3324", "inbg": "#020c18", "ongo": "#04202b"}, "sakura": {"bg": "#fff6ef", "panel": "#ffffff", "panel2": "#fdebf0", "line": "#c99aab", "tx": "#2b1a1f", "dim": "#5e434c", "go": "#b0124f", "kai": "#075a85", "you": "#22662a", "new": "#9a4211", "rev": "#33449c", "onbg": "#fbd3e1", "sentbg": "#e8f5e9", "inbg": "#ffffff", "ongo": "#ffffff"}, "mori": {"bg": "#0e1f16", "panel": "#16301f", "panel2": "#1d3b28", "line": "#4a7357", "tx": "#f6f3e4", "dim": "#c9d3bb", "go": "#c6f36b", "kai": "#7fd8ff", "you": "#ffe082", "new": "#ffab73", "rev": "#b8c9ff", "onbg": "#2f4a14", "sentbg": "#233a12", "inbg": "#08140d", "ongo": "#10200a"}};
-var PAL_ORDER=["night","neon","ocean","sakura","mori"];
+var PAL={"night": {"bg": "#0b0c0f", "panel": "#16181d", "panel2": "#1f2229", "line": "#3a3f4a", "tx": "#f5f5f2", "dim": "#b9bdc6", "go": "#ffd23f", "kai": "#5fd4ff", "you": "#9df28a", "new": "#ff9f6b", "rev": "#8fb8ff", "onbg": "#3a3210", "sentbg": "#10210e", "inbg": "#000000", "ongo": "#111111"}, "neon": {"bg": "#0d0221", "panel": "#1a0b3b", "panel2": "#241452", "line": "#5a469c", "tx": "#fdf7ff", "dim": "#cfc5ee", "go": "#ff5ad9", "kai": "#3ee8ff", "you": "#b8ff3e", "new": "#ffb86b", "rev": "#b3afff", "onbg": "#4a0f45", "sentbg": "#1d2a05", "inbg": "#05010f", "ongo": "#1a0014"}, "ocean": {"bg": "#06192e", "panel": "#0c2742", "panel2": "#123352", "line": "#3a6688", "tx": "#f2f8ff", "dim": "#bfd3e8", "go": "#4fe3ff", "kai": "#ffd36b", "you": "#8ff0c4", "new": "#ffb08a", "rev": "#b6ccff", "onbg": "#0f3f57", "sentbg": "#0b3324", "inbg": "#020c18", "ongo": "#04202b"}, "sakura": {"bg": "#fff6ef", "panel": "#ffffff", "panel2": "#fdebf0", "line": "#c99aab", "tx": "#2b1a1f", "dim": "#5e434c", "go": "#b0124f", "kai": "#075a85", "you": "#22662a", "new": "#9a4211", "rev": "#33449c", "onbg": "#fbd3e1", "sentbg": "#e8f5e9", "inbg": "#ffffff", "ongo": "#ffffff"}, "mori": {"bg": "#0e1f16", "panel": "#16301f", "panel2": "#1d3b28", "line": "#4a7357", "tx": "#f6f3e4", "dim": "#c9d3bb", "go": "#c6f36b", "kai": "#7fd8ff", "you": "#ffe082", "new": "#ffab73", "rev": "#b8c9ff", "onbg": "#2f4a14", "sentbg": "#233a12", "inbg": "#08140d", "ongo": "#10200a"}, "ichigo": {"bg": "#fff0f4", "panel": "#ffffff", "panel2": "#ffe3ec", "line": "#f2b8c8", "tx": "#3a1f29", "dim": "#6e4a57", "go": "#c2185b", "kai": "#1565a8", "you": "#2e7d32", "new": "#b0450f", "rev": "#5b3fb0", "onbg": "#ffe2ec", "sentbg": "#eaf7ea", "inbg": "#ffffff", "ongo": "#ffffff"}, "lavender": {"bg": "#f6f1ff", "panel": "#ffffff", "panel2": "#ece3ff", "line": "#c9b5f2", "tx": "#2a2140", "dim": "#5b4f75", "go": "#6a3fc4", "kai": "#0f6c8f", "you": "#2f7a3a", "new": "#a8481a", "rev": "#b0246a", "onbg": "#e2d4ff", "sentbg": "#e9f6ec", "inbg": "#ffffff", "ongo": "#ffffff"}, "mint": {"bg": "#effbf6", "panel": "#ffffff", "panel2": "#dcf5ea", "line": "#9fd8bf", "tx": "#16302a", "dim": "#3f5f55", "go": "#0b7a5a", "kai": "#1d5fa8", "you": "#a0306a", "new": "#a14a10", "rev": "#3a4fb0", "onbg": "#d9f6e9", "sentbg": "#fdeef5", "inbg": "#ffffff", "ongo": "#ffffff"}, "lemon": {"bg": "#fffbe8", "panel": "#ffffff", "panel2": "#fff3c4", "line": "#e8d27a", "tx": "#2f2a12", "dim": "#5f5730", "go": "#8a5d00", "kai": "#1b62a3", "you": "#2e7d32", "new": "#b0401a", "rev": "#6a3fc4", "onbg": "#ffe9a0", "sentbg": "#eaf7ea", "inbg": "#ffffff", "ongo": "#ffffff"}, "sora": {"bg": "#eef7ff", "panel": "#ffffff", "panel2": "#dcefff", "line": "#a9cdef", "tx": "#13283d", "dim": "#44607a", "go": "#1565c0", "kai": "#b03a74", "you": "#2e7d32", "new": "#a8481a", "rev": "#5b3fb0", "onbg": "#dcedff", "sentbg": "#eaf7ea", "inbg": "#ffffff", "ongo": "#ffffff"}, "peach": {"bg": "#fff3ec", "panel": "#ffffff", "panel2": "#ffe4d6", "line": "#f3bfa3", "tx": "#3a2318", "dim": "#6e4c3e", "go": "#b8401a", "kai": "#1565a8", "you": "#2e7d32", "new": "#8a3fa0", "rev": "#3f51b5", "onbg": "#ffe6da", "sentbg": "#eaf7ea", "inbg": "#ffffff", "ongo": "#ffffff"}};
+/* v0.17：色を2つのシリーズに分ける。「見やすい」（暗い背景・はっきりした色。弱視の生徒も使える）と「パステル」（明るくやさしい背景）。
+   シリーズボタンでシリーズを選び、色ボタンでそのシリーズの中の色を順に回す。どの色も AA（4.5:1 以上）を満たす。 */
+var SERIES={mieru:["night","neon","ocean","sakura","mori"],pastel:["ichigo","lavender","mint","lemon","sora","peach"]};
+var PAL_ORDER=SERIES.mieru.concat(SERIES.pastel);
+function seriesOf(t){return SERIES.pastel.indexOf(t)>=0?"pastel":"mieru";}
 function pal(){return PAL[S.theme]||PAL.night;}
 function applyTheme(){var p=pal(),st=document.documentElement.style;Object.keys(p).forEach(function(k){st.setProperty("--"+k,p[k]);});st.setProperty("--glow",p.go+"55");
  var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement("meta");m.name="theme-color";document.head.appendChild(m);}m.content=p.bg;}
@@ -446,7 +451,7 @@ var UIL={home:["Home","ホーム"],route:["Route","{道|みち}"],themes:["Theme
  showkb:["Show keyboard","ABCキーボードを{出|だ}す"],caps:["Caps","{大文字|おおもじ}"],space:["Space","スペース"],photobtn:["Take / choose a photo","{写真|しゃしん}を{撮|と}る・{選|えら}ぶ"],
  m_keep:["Chosen sentence","{選|えら}んだ{文|ぶん}"],m_abc:["ABC keyboard","ABCキーボード"],m_voice:["Voice","{声|こえ}で"],m_hand:["Handwriting","{手書|てが}き"],m_photo:["Photo","{写真|しゃしん}"],
  t0:["Way 1","{言|い}い{方|かた}1"],t1:["Way 2","{言|い}い{方|かた}2"],t2:["Way 3","{言|い}い{方|かた}3"],t3:["My own","{自分|じぶん}の{言葉|ことば}"],
- ts0:["",""],ts1:["",""],ts2:["",""],check:["Check","{点検|てんけん}する"],h_mine:["My learning","{学|まな}びの{記録|きろく}"],color:["Color","{色|いろ}"],kblabel:["Layout","{並|なら}び"],kbl_abc:["ABC order","ABC{順|じゅん}"],kbl_qw:["Keyboard","キーボード{順|じゅん}"],th_night:["Night", "{夜|よる}"],th_neon:["Neon", "ネオン"],th_ocean:["Ocean", "{海|うみ}"],th_sakura:["Sakura", "{桜|さくら}"],th_mori:["Forest", "{森|もり}"],checkres:["Check","{点検|てんけん}"],ts3:["Original","オリジナル"],
+ ts0:["",""],ts1:["",""],ts2:["",""],check:["Check","{点検|てんけん}する"],h_mine:["My learning","{学|まな}びの{記録|きろく}"],color:["Color","{色|いろ}"],kblabel:["Layout","{並|なら}び"],ser_mieru:["Clear","{見|み}やすい"],ser_pastel:["Pastel","パステル"],th_ichigo:["Strawberry", "いちごミルク"],th_lavender:["Lavender", "ラベンダー"],th_mint:["Mint", "ミント"],th_lemon:["Lemon", "レモン"],th_sora:["Sky", "そらいろ"],th_peach:["Peach", "ピーチ"],kbl_abc:["ABC order","ABC{順|じゅん}"],kbl_qw:["Keyboard","キーボード{順|じゅん}"],th_night:["Night", "{夜|よる}"],th_neon:["Neon", "ネオン"],th_ocean:["Ocean", "{海|うみ}"],th_sakura:["Sakura", "{桜|さくら}"],th_mori:["Forest", "{森|もり}"],checkres:["Check","{点検|てんけん}"],ts3:["Original","オリジナル"],
  lv0:["Easy","やさしい"],lv1:["Standard","{標準|ひょうじゅん}"],lv2:["Challenge","{実践|じっせん}"],level:["Level","{取|と}り{組|く}み{方|かた}"],
  h_theme:["Start from a theme","テーマから{進|すす}む"],h_expr:["Start from expressions","{表現|ひょうげん}から{進|すす}む"],h_notes:["My notes","{自分|じぶん}のノート"],h_dict:["Dictionary","{辞書|じしょ}"],
  h_rec:["My records","{自分|じぶん}の{記録|きろく}"],h_teacher:["Teacher page","{先生|せんせい}のページ"],nexthere:["Next","{次|つぎ}はここ"],goal:["Goal","ゴール"],new:["New","{新|あたら}しい{表現|ひょうげん}"],rev:["Review","{復習|ふくしゅう}"],
@@ -464,6 +469,7 @@ function bar(title,sub){
   '<div class="ttl">'+title+(sub?'<small>'+sub+'</small>':"")+'</div>'+
   (S.nick?'<span class="dim">'+h(S.cls)+" "+h(S.nick)+'</span>':"")+
   '<span class="row"><span class="dim">'+L("text")+'</span>'+sc+'</span><span class="row"><span class="dim">'+L("speed")+'</span>'+rt+'</span>'+
+  '<button class="b sm serb" data-a="series" aria-label="色のシリーズの切りかえ（見やすい／パステル）">'+L("ser_"+seriesOf(S.theme))+'</button>'+
   '<button class="b sm thb" data-a="color" aria-label="色の切りかえ（押すたびに変わります）" title="色"><span class="sw" aria-hidden="true"></span>'+L("th_"+S.theme)+'</button>'+um+'</div>';
 }
 function levelCard(){
@@ -1047,7 +1053,8 @@ var ACT={
  uimode:function(){S.ui={ja:"ruby",ruby:"en",en:"ja"}[S.ui]||"ja";store();},
  scale:function(d){S.scale=+d.v;store();},
  kbl:function(d){S.kbl=d.v==="qwerty"?"qwerty":"abc";store();},
- color:function(){var i=PAL_ORDER.indexOf(S.theme);S.theme=PAL_ORDER[(i+1)%PAL_ORDER.length];store();},
+ color:function(){var L2=SERIES[seriesOf(S.theme)],i=L2.indexOf(S.theme);S.theme=L2[(i+1)%L2.length];S.lastTh[seriesOf(S.theme)]=S.theme;store();},
+ series:function(){var nx=seriesOf(S.theme)==="mieru"?"pastel":"mieru";S.lastTh[seriesOf(S.theme)]=S.theme;S.theme=S.lastTh[nx]||SERIES[nx][0];store();},
  rate:function(d){S.rate=+d.v;store();speak("Hello.");},
  open:function(d){if(d.t!==undefined)S.th=+d.t;enterStep(+d.v);},
  say:function(d){if(d.t)speak(d.t,null,d.w);return false;},

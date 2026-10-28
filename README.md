@@ -2,7 +2,7 @@
 
 An English learning web app for high-school students (Logic and Expression I), designed for students with physical and intellectual disabilities. Runs in the browser; no login and no data is sent to a server in this public version.
 
-- Version: v0.16 public
+- Version: v0.17 public
 - Dictionary: CEFR A1–A2 (2,557 words)
 
 ## Credits
