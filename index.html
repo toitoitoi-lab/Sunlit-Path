@@ -68,6 +68,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .hb b{font-size:1.25rem;display:block}.hb.go{border-color:var(--go)}
 /* keyboard */
 .kb{display:grid;grid-template-columns:repeat(7,1fr);gap:.3rem}
+.kb.qw{grid-template-columns:repeat(20,minmax(0,1fr));gap:.25rem}.kb.qw button{font-size:1.15rem}.kb.qw button.w2{font-size:.8rem;white-space:nowrap;overflow:hidden;padding:0 .1rem}
+.kbsw{margin:.3rem 0}
 .kb button{min-height:44px;border-radius:.5rem;border:2px solid var(--line);background:var(--panel2);font-size:1.25rem;padding:0}
 .kb button.w2{grid-column:span 2;font-size:.95rem}.kb button.w3{grid-column:span 3;font-size:.95rem}
 .typed{min-height:3.2rem;border:3px solid var(--go);border-radius:.8rem;padding:.5rem .7rem;font-size:1.3rem;background:var(--inbg);word-break:break-word}
@@ -149,7 +151,7 @@ var MODE="<?= mode ?>";
 (function(){
 "use strict";
 var GAS=(MODE==="private")&&typeof google!=="undefined"&&google.script&&google.script.run;
-var VERSION="v0.15";
+var VERSION="v0.16";
 /* ---------- CEFR 辞書（A1〜A2）---------- */
 /* [番号, 見出し語, レベル, 品詞, 意味, 例文, 例文の訳, 別の書き方]
    語彙とレベル：CEFR-J Wordlist Version 1.5（東京外国語大学 投野由紀夫）／意味：EJDict-hand（パブリックドメイン）をもとに作成／例文：Sunlit Path オリジナル */
@@ -318,15 +320,15 @@ var LEVELS=[["やさしい","言い方 1つでクリア（言い方1だけでも
 var TIER4=TIERS.concat([["自分の言葉","オリジナル"]]);
 
 /* ---------- 状態 ---------- */
-var S={theme:"night",prac:{},lastChk:{},ev:[],myrec:null,view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
+var S={kbl:"abc",theme:"night",prac:{},lastChk:{},ev:[],myrec:null,view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
  sel:{},answers:{},tries:{},notes:[],notesLoaded:!GAS,noteUrl:"",inp:null,lvSel:0,
  hw:{strokes:[],full:false,thick:true},conv:null,swap:false,
  dict:null,dl:"a",dq:"",dqOn:false,dsel:null,tlist:null,imgs:{},saved:null,words:null};
 var KEY="sunlit_path_05";
-function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk","ev","theme"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
+function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk","ev","theme","kbl"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
  if(!GAS){if(o.answers)S.answers=o.answers;if(o.tries)S.tries=o.tries;if(o.notes)S.notes=o.notes;}}catch(e){}}
 function store(){try{var a={};Object.keys(S.answers).forEach(function(k){var x=S.answers[k];a[k]={text:x.text,method:x.method,ok:x.ok};});
- var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk,ev:S.ev,theme:S.theme};
+ var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk,ev:S.ev,theme:S.theme,kbl:S.kbl};
  if(!GAS)o.notes=S.notes.map(function(n){return {time:n.time,label:n.label,text:n.text};});
  localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
 function run(fn,arg,cb){
@@ -444,7 +446,7 @@ var UIL={home:["Home","ホーム"],route:["Route","{道|みち}"],themes:["Theme
  showkb:["Show keyboard","ABCキーボードを{出|だ}す"],caps:["Caps","{大文字|おおもじ}"],space:["Space","スペース"],photobtn:["Take / choose a photo","{写真|しゃしん}を{撮|と}る・{選|えら}ぶ"],
  m_keep:["Chosen sentence","{選|えら}んだ{文|ぶん}"],m_abc:["ABC keyboard","ABCキーボード"],m_voice:["Voice","{声|こえ}で"],m_hand:["Handwriting","{手書|てが}き"],m_photo:["Photo","{写真|しゃしん}"],
  t0:["Way 1","{言|い}い{方|かた}1"],t1:["Way 2","{言|い}い{方|かた}2"],t2:["Way 3","{言|い}い{方|かた}3"],t3:["My own","{自分|じぶん}の{言葉|ことば}"],
- ts0:["",""],ts1:["",""],ts2:["",""],check:["Check","{点検|てんけん}する"],h_mine:["My learning","{学|まな}びの{記録|きろく}"],color:["Color","{色|いろ}"],th_night:["Night", "{夜|よる}"],th_neon:["Neon", "ネオン"],th_ocean:["Ocean", "{海|うみ}"],th_sakura:["Sakura", "{桜|さくら}"],th_mori:["Forest", "{森|もり}"],checkres:["Check","{点検|てんけん}"],ts3:["Original","オリジナル"],
+ ts0:["",""],ts1:["",""],ts2:["",""],check:["Check","{点検|てんけん}する"],h_mine:["My learning","{学|まな}びの{記録|きろく}"],color:["Color","{色|いろ}"],kblabel:["Layout","{並|なら}び"],kbl_abc:["ABC order","ABC{順|じゅん}"],kbl_qw:["Keyboard","キーボード{順|じゅん}"],th_night:["Night", "{夜|よる}"],th_neon:["Neon", "ネオン"],th_ocean:["Ocean", "{海|うみ}"],th_sakura:["Sakura", "{桜|さくら}"],th_mori:["Forest", "{森|もり}"],checkres:["Check","{点検|てんけん}"],ts3:["Original","オリジナル"],
  lv0:["Easy","やさしい"],lv1:["Standard","{標準|ひょうじゅん}"],lv2:["Challenge","{実践|じっせん}"],level:["Level","{取|と}り{組|く}み{方|かた}"],
  h_theme:["Start from a theme","テーマから{進|すす}む"],h_expr:["Start from expressions","{表現|ひょうげん}から{進|すす}む"],h_notes:["My notes","{自分|じぶん}のノート"],h_dict:["Dictionary","{辞書|じしょ}"],
  h_rec:["My records","{自分|じぶん}の{記録|きろく}"],h_teacher:["Teacher page","{先生|せんせい}のページ"],nexthere:["Next","{次|つぎ}はここ"],goal:["Goal","ゴール"],new:["New","{新|あたら}しい{表現|ひょうげん}"],rev:["Review","{復習|ふくしゅう}"],
@@ -507,12 +509,27 @@ function readBox(){
   (S.inp.kbOpen?kb():'<button class="b" data-a="kbopen">'+L("showkb")+'</button>');
 }
 function kb(){
- var cp=S.inp.caps,ks="abcdefghijklmnopqrstuvwxyz".split("").map(function(c){var ch=cp?c.toUpperCase():c;return '<button class="en" data-a="key" data-v="'+ch+'">'+ch+'</button>';});
+ /* v0.16：ならびを「ABC順」と「キーボード順（タイピングと同じ QWERTY）」から選べる。選んだならびは端末に覚えさせる。 */
+ var cp=S.inp.caps,qw=S.kbl==="qwerty";
+ var key=function(c,span){var ch=cp?c.toUpperCase():c;return '<button class="en" data-a="key" data-v="'+ch+'"'+(span?' style="grid-column:span '+span+'"':"")+'>'+ch+'</button>';};
+ var sw='<div class="row kbsw"><span class="dim">'+L("kblabel")+'</span><button class="b sm'+(!qw?" on":"")+'" data-a="kbl" data-v="abc">'+L("kbl_abc")+'</button><button class="b sm'+(qw?" on":"")+'" data-a="kbl" data-v="qwerty">'+L("kbl_qw")+'</button></div>';
+ var capsB=function(span){return '<button class="w2" data-a="caps" style="grid-column:span '+span+';'+(cp?"border-color:var(--go)":"")+'">'+L("caps")+'</button>';};
+ if(qw){
+  var ks=[],gap=function(n){return '<span style="grid-column:span '+n+'"></span>';};
+  "qwertyuiop".split("").forEach(function(c){ks.push(key(c,2));});
+  ks.push(gap(1));"asdfghjkl".split("").forEach(function(c){ks.push(key(c,2));});ks.push(gap(1));
+  ks.push(capsB(3));"zxcvbnm".split("").forEach(function(c){ks.push(key(c,2));});ks.push('<button class="w2" data-a="bs" style="grid-column:span 3">← '+L("del")+'</button>');
+  ["'",".",",","?","!"].forEach(function(c){ks.push('<button class="en" data-a="key" data-v="'+c+'" style="grid-column:span 2">'+c+'</button>');});
+  ks.push('<button class="w2" data-a="key" data-v=" " style="grid-column:span 10">'+L("space")+'</button>');
+  ks.push('<button class="w2" data-a="clr" style="grid-column:span 10">'+L("clearall")+'</button><button class="w2" data-a="say" data-w="Y" data-t="'+h(S.inp.text)+'" style="grid-column:span 10">▶ '+L("play")+'</button>');
+  return sw+'<div class="kb qw">'+ks.join("")+'</div>';
+ }
+ var ks="abcdefghijklmnopqrstuvwxyz".split("").map(function(c){return key(c);});
  ks.push('<button class="en" data-a="key" data-v="\'">\'</button>','<button class="en" data-a="key" data-v=".">.</button>');
  ks.push('<button class="en" data-a="key" data-v=",">,</button>','<button class="en" data-a="key" data-v="?">?</button>','<button class="en" data-a="key" data-v="!">!</button>');
- ks.push('<button class="w2" data-a="caps" style="'+(cp?"border-color:var(--go)":"")+'">'+L("caps")+'</button><button class="w2" data-a="key" data-v=" ">'+L("space")+'</button>');
+ ks.push(capsB(2)+'<button class="w2" data-a="key" data-v=" ">'+L("space")+'</button>');
  ks.push('<button class="w2" data-a="bs">← '+L("del")+'</button><button class="w3" data-a="clr">'+L("clearall")+'</button><button class="w2" data-a="say" data-w="Y" data-t="'+h(S.inp.text)+'">▶ '+L("play")+'</button>');
- return '<div class="kb">'+ks.join("")+'</div>';
+ return sw+'<div class="kb">'+ks.join("")+'</div>';
 }
 function hwBox(){
  var w=S.hw;
@@ -1029,6 +1046,7 @@ var ACT={
  level:function(d){S.level=+d.v;store();},
  uimode:function(){S.ui={ja:"ruby",ruby:"en",en:"ja"}[S.ui]||"ja";store();},
  scale:function(d){S.scale=+d.v;store();},
+ kbl:function(d){S.kbl=d.v==="qwerty"?"qwerty":"abc";store();},
  color:function(){var i=PAL_ORDER.indexOf(S.theme);S.theme=PAL_ORDER[(i+1)%PAL_ORDER.length];store();},
  rate:function(d){S.rate=+d.v;store();speak("Hello.");},
  open:function(d){if(d.t!==undefined)S.th=+d.t;enterStep(+d.v);},
