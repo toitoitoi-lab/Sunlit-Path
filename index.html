@@ -26,6 +26,12 @@ button{font:inherit;color:inherit;cursor:pointer}
 .hl{color:var(--go)}
 .xrow{display:flex;gap:.4rem;align-items:center;min-width:0}.xrow>.say{flex:1;min-width:0}.xrow>.b,.xrow>.lab{flex:none}
 .tile.chip{display:inline-flex;flex-direction:column;margin:.15rem}
+.pkl{display:flex;flex-direction:column;gap:.2rem;margin:.4rem 0}
+.pk{display:flex;align-items:center;gap:.4rem;min-height:44px;padding:.2rem .5rem;border-radius:.5rem;border:2px solid var(--line);background:var(--panel2);text-align:left;width:100%}
+.pk.on{border-color:var(--go);background:var(--onbg)}
+.pk.out{border-style:dashed;background:transparent;opacity:.55}
+.pk .mk{flex:none;width:1.4rem;font-weight:700;text-align:center}.pk .no{flex:none;width:1.4rem;font-weight:700;text-align:right}
+.pk .rl{flex:none;width:9.5rem;font-size:.85rem;font-weight:700}.pk .fr{flex:1;min-width:0}
 .tile.chip:not(.on){opacity:.75;border-style:dashed}
 .en ruby rt{font-family:inherit;letter-spacing:0}
 .b{min-height:44px;min-width:44px;padding:.35rem .8rem;border-radius:.6rem;border:2px solid var(--line);background:var(--panel2);text-align:center}
@@ -159,7 +165,7 @@ var MODE="<?= mode ?>";
 (function(){
 "use strict";
 var GAS=(MODE==="private")&&typeof google!=="undefined"&&google.script&&google.script.run;
-var VERSION="v0.18";
+var VERSION="v0.19";
 /* ---------- CEFR 辞書（A1〜A2）---------- */
 /* [番号, 見出し語, レベル, 品詞, 意味, 例文, 例文の訳, 別の書き方]
    語彙とレベル：CEFR-J Wordlist Version 1.5（東京外国語大学 投野由紀夫）／意味：EJDict-hand（パブリックドメイン）をもとに作成／例文：Sunlit Path オリジナル */
@@ -525,18 +531,21 @@ var LEVELS=[["やさしい","言い方 1つでクリア（言い方1だけでも
 var TIER4=TIERS.concat([["自分の言葉","オリジナル"]]);
 
 /* ---------- 状態 ---------- */
-var S={lvset:"a2",nsent:4,extra:{},my:[],mk:null,xk:null,kana:false,kbv:0,kbl:"qwerty",theme:"night",lastTh:{},prac:{},lastChk:{},ev:[],myrec:null,view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
+var S={lvset:"a2",nsent:4,srange:4,spick:[0,1,2,3],extra:{},my:[],mk:null,xk:null,kana:false,kbv:0,kbl:"qwerty",theme:"night",lastTh:{},prac:{},lastChk:{},ev:[],myrec:null,view:"home",ui:"ja",dsrc:"cefr",dlv:"",nick:"",cls:"",teacher:false,ready:!GAS,scale:0,rate:0.85,th:0,step:0,stage:0,level:null,
  sel:{},answers:{},tries:{},notes:[],notesLoaded:!GAS,noteUrl:"",inp:null,lvSel:0,
  hw:{strokes:[],full:false,thick:true},conv:null,swap:false,
  dict:null,dl:"a",dq:"",dqOn:false,dsel:null,tlist:null,imgs:{},saved:null,words:null};
 var KEY="sunlit_path_05";
-function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk","ev","theme","kbl","lastTh","lvset","nsent","extra","my","kana","kbv"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
+function load(){try{var o=JSON.parse(localStorage.getItem(KEY)||"{}");["scale","rate","sel","level","ui","dsrc","prac","lastChk","ev","theme","kbl","lastTh","lvset","nsent","extra","my","kana","kbv","srange","spick"].forEach(function(k){if(o[k]!==undefined)S[k]=o[k];});
+ /* v0.19：前の版の「文の数」を「どこまで学ぶ・話す文を選ぶ」に引きつぐ */
+ if(o.srange===undefined&&o.nsent){S.srange=Math.max(1,Math.min(10,+o.nsent||4));S.spick=[];for(var q=0;q<S.srange;q++)S.spick.push(q);}
+ if(!Array.isArray(S.spick))S.spick=[0,1,2,3];
  /* v0.18：キーボードは最初「キーボード順（QWERTY）」。前の版で ABC順 のまま覚えていたものも一度だけ切りかえる */
  if(S.kbv!==2){S.kbl="qwerty";S.kbv=2;}
  if(GAS)S.lvset="a2";if(!Array.isArray(S.my))S.my=[];
  if(!GAS){if(o.answers)S.answers=o.answers;if(o.tries)S.tries=o.tries;if(o.notes)S.notes=o.notes;}}catch(e){}}
 function store(){try{var a={};Object.keys(S.answers).forEach(function(k){var x=S.answers[k];a[k]={text:x.text,method:x.method,ok:x.ok};});
- var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk,ev:S.ev,theme:S.theme,kbl:S.kbl,lastTh:S.lastTh,lvset:S.lvset,nsent:S.nsent,extra:S.extra,my:S.my,kana:S.kana,kbv:S.kbv};
+ var o={scale:S.scale,rate:S.rate,sel:S.sel,level:S.level,ui:S.ui,dsrc:S.dsrc,answers:a,tries:S.tries,prac:S.prac,lastChk:S.lastChk,ev:S.ev,theme:S.theme,kbl:S.kbl,lastTh:S.lastTh,lvset:S.lvset,nsent:S.nsent,srange:S.srange,spick:S.spick,extra:S.extra,my:S.my,kana:S.kana,kbv:S.kbv};
  if(!GAS)o.notes=S.notes.map(function(n){return {time:n.time,label:n.label,text:n.text};});
  localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
 function run(fn,arg,cb){
@@ -781,30 +790,40 @@ var EXTRAS={
  b1:[["気持ち","I feel ～ when ～.","I feel happy when I do it."],["もう一つの理由","Also, ～.","Also, it is a good way to make friends."],["例","For example, ～.","For example, I did it with my family last month."],["くらべる","It is more ～ than ～.","It is more fun than watching TV."],["まとめ","That's why ～.","That's why I like it so much."],["たずね返す","What about you? ～?","What about you? What do you like?"]]
 };
 var CONN=["because","so","also","for example","for instance","if","when","but","and","that's why","first","then","after that","finally","what about you","how about you","in my opinion","i think"];
-function nSent(){var n=+S.nsent||4;return n<1?1:n>10?10:n;}
+/* v0.19：①どこまで学ぶ（1〜10）→ ②その中から話す文を選ぶ。順番はいつもおすすめの順。1つ目（主張）はいつも入る */
+function sRange(){var n=+S.srange||4;return n<1?1:n>10?10:n;}
+function sPick(){var r=sRange(),m={0:1};(S.spick||[]).forEach(function(i){if(i>=0&&i<r)m[i]=1;});return Object.keys(m).map(Number).sort(function(a,b){return a-b;});}
+function nSent(){return sPick().length;}
 function extraOf(Tm){S.extra[Tm.id]=S.extra[Tm.id]||{};return S.extra[Tm.id];}
+function roleList(Tm){var ER=EXTRAS[isB1()?"b1":"a2"];
+ return Tm.steps.slice(0,4).map(function(st,i){return [st.title,blank(st.lv[0][0]),"step",i];}).concat(ER.map(function(r,k){return [r[0],r[1],"extra",k];}));}
 /* [見出し, 文, 種類(step/extra/greet), 番号, できたか] */
 function speechLines(Tm){
- var n=nSent(),a=[],ex=extraOf(Tm),ER=EXTRAS[isB1()?"b1":"a2"];
+ var a=[],ex=extraOf(Tm),RL=roleList(Tm);
  if(Tm.head)a.push(["あいさつ",Tm.head,"greet",-1,true]);
- Tm.steps.slice(0,Math.min(n,4)).forEach(function(s,i){var an=S.answers[s.id];a.push([s.title,an?an.text:"","step",i,!!an]);});
- for(var k=0;k<n-4;k++)a.push([ER[k][0],ex[k]||"","extra",k,!!ex[k]]);
+ sPick().forEach(function(i){var r=RL[i];if(!r)return;
+  if(r[2]==="step"){var s=Tm.steps[r[3]],an=S.answers[s.id];a.push([s.title,an?an.text:"","step",r[3],!!an]);}
+  else a.push([r[0],ex[r[3]]||"","extra",r[3],!!ex[r[3]]]);});
  if(Tm.tail)a.push(["結び",Tm.tail,"greet",-1,true]);
  return a;
 }
 function connFound(t){var s=" "+norm(t).toLowerCase().replace(/[.,!?]/g," ")+" ";return CONN.filter(function(c){return s.indexOf(" "+c+" ")>=0;});}
 function countRow(){
- var n=nSent();
- return '<div class="card"><b>何文で話しますか？</b><span class="dim">（あいさつは数に入りません）</span><div class="cnt">'+
-  [1,2,3,4,5,6,7,8,9,10].map(function(k){return '<button class="b'+(k===n?" on":"")+'" data-a="nsent" data-v="'+k+'" aria-label="'+k+'文">'+k+'</button>';}).join("")+
-  '</div><div class="dim" style="font-size:.85rem">はじめは2〜4文がおすすめ。5文から先は、下の型を使って自分で書き足します。</div></div>';
+ var r=sRange(),pk=sPick(),RL=roleList(T()),on={};pk.forEach(function(i){on[i]=1;});
+ return '<div class="card dim" style="font-size:.9rem;line-height:1.5">英語では、まず<b style="color:var(--tx)">自分の考え（主張）</b>を言い、そのあと理由・例・体験…と続けるのがふつうです。下の1〜10は、そのおすすめの順番です。1つ目は話の中心になる文なので、いつも入ります。</div>'+
+  '<div class="card"><b>① どこまで学ぶ？</b><span class="dim">　使いたい言い方があるところまで</span><div class="cnt">'+
+  [1,2,3,4,5,6,7,8,9,10].map(function(k){return '<button class="b'+(k===r?" on":"")+'" data-a="srange" data-v="'+k+'" aria-label="'+k+'まで">'+k+'</button>';}).join("")+'</div></div>'+
+  '<div class="card"><b>② 話す文を選ぶ</b><span class="dim">　押すと選べます。順番はアプリがそろえます</span><div class="pkl">'+
+  RL.map(function(x,i){var inR=i<r,o=!!on[i];
+   return '<button class="pk'+(o?" on":"")+(inR?"":" out")+'" data-a="spick" data-v="'+i+'" aria-pressed="'+(o?"true":"false")+'"><span class="mk">'+(inR?(o?"✓":"□"):"")+'</span><span class="no">'+(i+1)+'</span><span class="rl">'+h(x[0])+(i===0?"（いつも）":"")+'</span><span class="en fr">'+h(x[1])+'</span></button>';}).join("")+
+  '</div><div class="hl" style="font-size:.9rem;font-weight:700">1〜'+r+' の中から '+pk.length+'文 を選んでいます（あいさつは数に入りません）</div></div>';
 }
 function vEnd(Tm){
  var ls=speechLines(Tm),miss=ls.some(function(x){return !x[4];}),done=!!S.answers[endId(Tm)],talk=Tm.endT==="発表する",ER=EXTRAS[isB1()?"b1":"a2"];
  var left='<div class="pane"><div class="card"><span class="lab go">'+L("goal")+'</span><b>'+h(Tm.endT)+'</b><div class="dim">'+(talk?"話すこと［発表］":"話すこと［やり取り］")+'</div></div>'+countRow()+
   '<div class="card"><span class="lab go">'+L("pat")+'</span><div>文を、次の順につなぐと伝わりやすい。</div>'+
   '<div class="row" style="margin-top:.3rem">'+ls.map(function(x,i){return '<span class="role r'+(x[2]==="step"?x[3]+1:0)+'">'+h(x[0])+'</span>'+(i<ls.length-1?"→":"");}).join("")+'</div></div>'+
-  (nSent()>4?'<div class="card"><b>足す文の型</b>'+ER.slice(0,nSent()-4).map(function(r,k){return '<div class="row"><span class="lab rev">'+(k+5)+' '+h(r[0])+'</span><button class="say en" data-a="say" data-w="Y" data-t="'+h(r[2])+'"><span class="en">'+h(r[1])+'</span><span class="ja">例：'+h(r[2])+'</span></button></div>';}).join("")+'</div>':"")+
+  (sPick().some(function(i){return i>=4;})?'<div class="card"><b>自分で書き足す文の型</b>'+ER.map(function(r,k){return sPick().indexOf(k+4)<0?"":'<div class="row"><span class="lab rev">'+(k+5)+' '+h(r[0])+'</span><button class="say en" data-a="say" data-w="Y" data-t="'+h(r[2])+'"><span class="en">'+h(r[1])+'</span><span class="ja">例：'+h(r[2])+'</span></button></div>';}).join("")+'</div>':"")+
   '<div class="card">各手順で最後に保存した文が、そのまま中身になります。<br>'+(talk?"原稿を読むだけにせず、聞く人の方を見て話そう。":"相手の言葉を聞いてから、自分の文を言おう。")+'</div></div>';
  var no=0;
  var rows=ls.map(function(x){
@@ -815,7 +834,7 @@ function vEnd(Tm){
   else body='<button class="b'+(S.xk===x[3]?" on":"")+'" data-a="xw" data-v="'+x[3]+'">✎ 書く（'+h(ER[x[3]][1])+'）</button>';
   return '<div class="sl"><span class="role r'+(x[2]==="step"?x[3]+1:0)+'">'+num+h(x[0])+'</span>'+body+'</div>';}).join("");
  var wr="";
- if(S.xk!=null&&S.xk<nSent()-4&&S.inp){var r=ER[S.xk];
+ if(S.xk!=null&&sPick().indexOf(S.xk+4)>=0&&S.inp){var r=ER[S.xk];
   wr='<div class="card"><div class="row"><span class="lab go">'+(S.xk+5)+' '+h(r[0])+'</span><span class="en">'+h(r[1])+'</span></div>'+methodRow(["abc","voice","hand"],true)+
    (S.inp.method?inputBody()+'<div class="row" style="margin-top:.4rem"><button class="b go" data-a="xuse">この文を使う</button><button class="b" data-a="xcancel">'+L("close")+'</button></div>':'<div class="dim">答え方を選ぼう。</div>')+'</div>';}
  var all=ls.map(function(x){return x[1];}).join(" "),cf=connFound(all);
@@ -1185,7 +1204,7 @@ function render(){
    ボタンの高さが1行分に縮められ、2行目の文字が下のボタンに重なる。
    そのため、ボタンを1つずつ普通の箱（div）で包んでから並べる。（v0.12） */
 function wrapBtns(){
- [].forEach.call(document.querySelectorAll(".pane,.route,.dl"),function(box){
+ [].forEach.call(document.querySelectorAll(".pane,.route,.dl,.pkl"),function(box){
   [].slice.call(box.children).forEach(function(el){
    if(el.tagName!=="BUTTON")return;
    var w=document.createElement("div");w.className="bw";box.insertBefore(w,el);w.appendChild(el);
@@ -1485,7 +1504,11 @@ var ACT={
  scale:function(d){S.scale=+d.v;store();},
  lvset:function(d){if(GAS)return;var ok=LVSETS.some(function(l){return l[0]===d.v&&l[3];});if(!ok)return;S.lvset=d.v;S.th=0;setThemes();store();},
  kana:function(){S.kana=!S.kana;store();},
- nsent:function(d){S.nsent=Math.max(1,Math.min(10,+d.v||4));if(S.xk!=null&&S.xk>=S.nsent-4){S.xk=null;S.inp=null;}store();},
+ srange:function(d){S.srange=Math.max(1,Math.min(10,+d.v||4));S.spick=sPick();if(S.xk!=null&&sPick().indexOf(S.xk+4)<0){S.xk=null;S.inp=null;}store();},
+ spick:function(d){var i=+d.v;if(i===0){toast("1つ目は話の中心（主張）なので、いつも入ります。英語ではまず自分の考えを言います");return false;}
+  if(i>=sRange()){toast("①で "+(i+1)+" まで広げると選べます");return false;}
+  var p=sPick(),k=p.indexOf(i);if(k>=0)p.splice(k,1);else p.push(i);S.spick=p.sort(function(a,b){return a-b;});
+  if(S.xk!=null&&S.spick.indexOf(S.xk+4)<0){S.xk=null;S.inp=null;}delete S.answers[endId(T())];store();},
  xw:function(d){S.xk=+d.v;S.inp=freshInp("end");var t=extraOf(T())[S.xk];if(t){S.inp.method="abc";S.inp.text=t;}resetHW();},
  xcancel:function(){S.xk=null;S.inp=null;resetHW();},
  xuse:function(){var t=inpText();if(t&&S.inp.method==="voice")t=autoEnd(t);
@@ -1543,7 +1566,7 @@ var ACT={
  more:function(){var st=cur(),n=nextUntried(st,S.lvSel);if(n>=0)S.lvSel=n;S.saved=null;S.inp=ansInp(S.lvSel);resetHW();},
  submit:function(){
   var Tm=T(),t=speechLines(Tm).map(function(x){return x[1];}).filter(function(x){return x;}).join(" ");S.answers[endId(Tm)]={text:t,method:"keep",ok:true};store();
-  run("saveAnswer",{theme:Tm.id,step:endId(Tm),method:"keep",text:t,model:"",ok:true,img:"",choice:{n:nSent()}});speak("You did it!");
+  run("saveAnswer",{theme:Tm.id,step:endId(Tm),method:"keep",text:t,model:"",ok:true,img:"",choice:{n:nSent(),range:sRange(),pick:sPick().map(function(i){return i+1;})}});speak("You did it!");
  },
  dl:function(d){if(S.dqOn){S.dq+=d.v;}else{S.dl=d.v;S.dq=d.v;S.dqOn=true;}S.dsel=null;},
  dqbs:function(){S.dq=S.dq.slice(0,-1);if(!S.dq)S.dqOn=false;},
